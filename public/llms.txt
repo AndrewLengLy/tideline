@@ -1,0 +1,33 @@
+# Tideline
+
+> When the highest tides of the year reach San Francisco Bay, where that water lands today, and where everyday high tides reach with 1 to 10 ft of sea level rise.
+
+## Pages
+
+- [3D map](https://tides.andrewlengly.com/): water slider, tide scrubber, and gauge columns over the central Bay.
+- [King tide calendar](https://tides.andrewlengly.com/king-tides): the 20 highest predicted tides across Bay gauges, with calendar export.
+- [Tide stations](https://tides.andrewlengly.com/stations): datums, flood thresholds, days over threshold, and the last 72 hours at each gauge.
+- [Shoreline spots](https://tides.andrewlengly.com/spots): 15 places where king tide flooding is commonly photographed, with the sea level rise step that first floods each one.
+- [Methodology](https://tides.andrewlengly.com/methodology): sources, formulas, limits, and changelog.
+
+## Data sources
+
+- [NOAA CO-OPS data API](https://api.tidesandcurrents.noaa.gov/api/prod/): tide predictions and observed water levels.
+- [NOAA CO-OPS metadata API](https://api.tidesandcurrents.noaa.gov/mdapi/prod/): stations, datums, and flood levels.
+- [NOAA CO-OPS derived product API](https://api.tidesandcurrents.noaa.gov/dpapi/prod/): observed high tide flood day counts.
+- [NOAA Sea Level Rise Viewer](https://coast.noaa.gov/slr/): inundation and mapping confidence layers at 0 to 10 ft.
+- [California King Tides Project](https://www.coastal.ca.gov/kingtides/): official statewide dates and photo uploads.
+- [USGS National Map imagery](https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer): aerial imagery.
+- [AWS Terrain Tiles (Mapzen)](https://registry.opendata.aws/terrain-tiles/): elevation.
+- [OpenFreeMap](https://openfreemap.org) with [OpenStreetMap](https://www.openstreetmap.org/copyright) data: roads, labels, and buildings.
+
+## Update frequency
+
+- Predictions for the next 12 months refresh once a day.
+- Observed water levels refresh every 6 minutes.
+- Datums, thresholds, and spot flood steps are built by script and committed. See the [methodology](https://tides.andrewlengly.com/methodology).
+
+## Limits
+
+- Sea level rise layers are screening-level maps from a modified bathtub method. They leave out storms and waves. See the [methodology](https://tides.andrewlengly.com/methodology).
+- For situational awareness only. Follow official alerts and evacuation orders. See [NWS Bay Area](https://www.weather.gov/mtr).

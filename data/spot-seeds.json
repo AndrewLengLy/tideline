@@ -1,0 +1,282 @@
+{
+  "spots": [
+    {
+      "slug": "crab-cove-alameda",
+      "name": "Crab Cove, Alameda",
+      "city": "Alameda",
+      "lat": 37.768,
+      "lng": -122.2786,
+      "facing": 179,
+      "fact": "East Bay Regional Park District holds a free king tide viewing event at Crab Cove, where visitors watch the tide arrive and photograph it.",
+      "sourceName": "Alameda Post",
+      "sourceUrl": "https://alamedapost.com/features/nature/be-part-of-the-california-king-tides-project-at-crab-cove/",
+      "floodingReported": false
+    },
+    {
+      "slug": "embarcadero-san-francisco",
+      "name": "Embarcadero at Pier 14, San Francisco",
+      "city": "San Francisco",
+      "lat": 37.7934,
+      "lng": -122.3922,
+      "facing": 86,
+      "fact": "Photos from a December 2024 high tide show water standing on the sidewalk at Pier 14 along the Embarcadero.",
+      "sourceName": "KQED",
+      "sourceUrl": "https://www.kqed.org/science/1999461/king-tides-to-flood-bay-area-shorelines-this-week-heres-where-and-when-to-safely-see-them",
+      "floodingReported": true
+    },
+    {
+      "slug": "manzanita-park-and-ride-mill-valley",
+      "name": "Manzanita Park and Ride, Mill Valley",
+      "city": "Mill Valley",
+      "lat": 37.88,
+      "lng": -122.5172,
+      "facing": 33,
+      "fact": "Caltrans closes the lower half of the Manzanita Park and Ride lot when high tides are forecast, because tides alone can flood it.",
+      "sourceName": "Caltrans District 4",
+      "sourceUrl": "https://dot.ca.gov/caltrans-near-me/district-4/d4-news/2024-10-30-mill-valley-park-n-ride-closure",
+      "floodingReported": true
+    },
+    {
+      "slug": "bothin-marsh-mill-valley",
+      "name": "Bothin Marsh path, Mill Valley",
+      "city": "Mill Valley",
+      "lat": 37.8858,
+      "lng": -122.5227,
+      "facing": 101,
+      "fact": "King tides regularly put the Bothin Marsh shoreline under water, and the path across the marsh floods about 30 times a year.",
+      "sourceName": "San Francisco Standard",
+      "sourceUrl": "https://sfstandard.com/2026/09/09/bothin-marsh-sea-level-rise-marin-county-tam-junction/",
+      "floodingReported": true
+    },
+    {
+      "slug": "foster-city-levee",
+      "name": "Foster City levee",
+      "city": "Foster City",
+      "lat": 37.5541,
+      "lng": -122.2478,
+      "facing": 115,
+      "fact": "The California King Tides Project gallery includes a photo of Belmont Slough in Foster City taken on January 2, 2026.",
+      "sourceName": "California Coastal Commission",
+      "sourceUrl": "https://coastal.ca.gov/kingtides/gallery.html",
+      "floodingReported": false
+    },
+    {
+      "slug": "redwood-shores",
+      "name": "Redwood Shores, Redwood City",
+      "city": "Redwood City",
+      "lat": 37.5295,
+      "lng": -122.2447,
+      "facing": 133,
+      "fact": "Tideline found no published report of king tide flooding at Redwood Shores. The numbers on this page come from NOAA layers alone.",
+      "sourceName": "NOAA Sea Level Rise Viewer",
+      "sourceUrl": "https://coast.noaa.gov/slr/",
+      "floodingReported": false
+    },
+    {
+      "slug": "palo-alto-baylands",
+      "name": "Palo Alto Baylands EcoCenter",
+      "city": "Palo Alto",
+      "lat": 37.4564,
+      "lng": -122.109,
+      "facing": 25,
+      "fact": "At the Palo Alto Baylands EcoCenter, king tide water spills over the banks and covers the path leading to the building.",
+      "sourceName": "Mountain View Voice (Palo Alto Online)",
+      "sourceUrl": "https://www.mv-voice.com/ae/2020/01/10/king-tides-to-swell-this-weekend/",
+      "floodingReported": true
+    },
+    {
+      "slug": "point-isabel-richmond",
+      "name": "Point Isabel, Richmond",
+      "city": "Richmond",
+      "lat": 37.8986,
+      "lng": -122.3254,
+      "facing": 250,
+      "fact": "Point Isabel Regional Shoreline hosted a guided king tides walk in 2015, and participants could bring a camera for the California King Tides Photo Initiative.",
+      "sourceName": "Bay Area Science event calendar (Friends of Five Creeks)",
+      "sourceUrl": "https://www.bayareascience.org/calendar/index.php?eID=14103",
+      "floodingReported": false
+    },
+    {
+      "slug": "sausalito-waterfront",
+      "name": "Kappas Marina, Sausalito",
+      "city": "Sausalito",
+      "lat": 37.8739,
+      "lng": -122.5069,
+      "facing": 72,
+      "fact": "King tides flooded the Kappas Marina parking lot in Sausalito, leaving ankle-deep water in places.",
+      "sourceName": "ABC7 News",
+      "sourceUrl": "https://abc7news.com/archive/9379450",
+      "floodingReported": true
+    },
+    {
+      "slug": "coyote-point-san-mateo",
+      "name": "Coyote Point Bay Trail, San Mateo",
+      "city": "San Mateo",
+      "lat": 37.5877,
+      "lng": -122.3329,
+      "facing": 4,
+      "fact": "Seawater rises over the Bay Trail path at Coyote Point when a king tide coincides with a storm surge.",
+      "sourceName": "Climate Access",
+      "sourceUrl": "https://www.climateaccess.org/blog/climate-access-launches-look-ahead-san-mateo/",
+      "floodingReported": true
+    },
+    {
+      "slug": "china-camp-san-rafael",
+      "name": "North San Pedro Road at China Camp",
+      "city": "San Rafael",
+      "lat": 38.009,
+      "lng": -122.4945,
+      "facing": 20,
+      "fact": "North San Pedro Road, the single vehicle route into China Camp State Park, goes under water quickly during king tides.",
+      "sourceName": "Friends of China Camp",
+      "sourceUrl": "https://friendsofchinacamp.org/sea-level-rise-and-n-san-pedro-rd/",
+      "floodingReported": true
+    },
+    {
+      "slug": "arrowhead-marsh-oakland",
+      "name": "Arrowhead Marsh, Oakland",
+      "city": "Oakland",
+      "lat": 37.7418,
+      "lng": -122.2089,
+      "facing": 330,
+      "fact": "Arrowhead Marsh has hosted a guided birding tour as one of its king tide viewing activities.",
+      "sourceName": "KQED",
+      "sourceUrl": "https://www.kqed.org/science/1954745/where-and-when-to-see-king-tides-in-the-bay-area-this-weekend",
+      "floodingReported": false
+    },
+    {
+      "slug": "bedwell-bayfront-park-menlo-park",
+      "name": "Bedwell Bayfront Park, Menlo Park",
+      "city": "Menlo Park",
+      "lat": 37.4893,
+      "lng": -122.1681,
+      "facing": 20,
+      "fact": "Bedwell Bayfront Park hosts a guided king tide walk where participants learn to upload their tide photos to the King Tides Project.",
+      "sourceName": "California Coastal Commission",
+      "sourceUrl": "https://www.coastal.ca.gov/kingtides/",
+      "floodingReported": false
+    },
+    {
+      "slug": "canal-san-rafael",
+      "name": "Canal neighborhood, San Rafael",
+      "city": "San Rafael",
+      "lat": 37.9653,
+      "lng": -122.5079,
+      "facing": 95,
+      "fact": "In the Canal neighborhood, tide water gets past makeshift levees and pumps and spills onto streets.",
+      "sourceName": "KQED",
+      "sourceUrl": "https://www.kqed.org/science/1999461/king-tides-to-flood-bay-area-shorelines-this-week-heres-where-and-when-to-safely-see-them",
+      "floodingReported": true
+    },
+    {
+      "slug": "alviso-marina-san-jose",
+      "name": "Alviso Marina, San Jose",
+      "city": "San Jose",
+      "lat": 37.4301,
+      "lng": -121.9798,
+      "facing": 330,
+      "fact": "The California King Tides Project gallery holds a photo taken at Alviso Marina on December 5, 2025.",
+      "sourceName": "California Coastal Commission",
+      "sourceUrl": "https://coastal.ca.gov/kingtides/gallery.html",
+      "floodingReported": false
+    }
+  ],
+  "places": [
+    {
+      "name": "Crissy Field",
+      "lat": 37.8037,
+      "lng": -122.464,
+      "radius": 150
+    },
+    {
+      "name": "Ferry Building",
+      "lat": 37.7955,
+      "lng": -122.3935,
+      "radius": 40
+    },
+    {
+      "name": "Oracle Park",
+      "lat": 37.7786,
+      "lng": -122.3893,
+      "radius": 80
+    },
+    {
+      "name": "Mission Bay",
+      "lat": 37.7707,
+      "lng": -122.3912,
+      "radius": 220
+    },
+    {
+      "name": "Treasure Island",
+      "lat": 37.8238,
+      "lng": -122.3704,
+      "radius": 500
+    },
+    {
+      "name": "SFO runways",
+      "lat": 37.617,
+      "lng": -122.37,
+      "radius": 700
+    },
+    {
+      "name": "Oakland Airport",
+      "lat": 37.715,
+      "lng": -122.215,
+      "radius": 700
+    },
+    {
+      "name": "Bay Farm Island",
+      "lat": 37.7386,
+      "lng": -122.244,
+      "radius": 400
+    },
+    {
+      "name": "Foster City",
+      "lat": 37.556,
+      "lng": -122.265,
+      "radius": 700
+    },
+    {
+      "name": "Alameda Point",
+      "lat": 37.786,
+      "lng": -122.31,
+      "radius": 500
+    },
+    {
+      "name": "Emeryville Marina",
+      "lat": 37.839,
+      "lng": -122.313,
+      "radius": 120
+    },
+    {
+      "name": "Berkeley Marina",
+      "lat": 37.865,
+      "lng": -122.314,
+      "radius": 150
+    },
+    {
+      "name": "Larkspur Ferry Terminal",
+      "lat": 37.9443,
+      "lng": -122.5086,
+      "radius": 60
+    },
+    {
+      "name": "Shoreline Park, Mountain View",
+      "lat": 37.4302,
+      "lng": -122.0824,
+      "radius": 300
+    },
+    {
+      "name": "Bay Bridge toll plaza",
+      "lat": 37.826,
+      "lng": -122.305,
+      "radius": 120
+    },
+    {
+      "name": "Hunters Point Shipyard",
+      "lat": 37.725,
+      "lng": -122.368,
+      "radius": 250
+    }
+  ]
+}
