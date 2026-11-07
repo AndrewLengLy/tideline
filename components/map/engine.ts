@@ -11,6 +11,10 @@ import { DEFAULT_LAYERS, type LayerSettings } from "./layers";
 import { registerProtocols } from "./protocols";
 import { baseStyle, BEFORE_BUILDINGS, BEFORE_FLOOD_LAYERS, BEFORE_WATER_LAYERS } from "./style";
 
+/** The poster stays up until imagery paints. After this long the canvas shows whatever has arrived. */
+const REVEAL_CAP_MS = 8000;
+const REVEAL_FADE_MS = 250;
+
 export interface ViewState {
   lat: number;
   lng: number;
@@ -86,6 +90,8 @@ export class TideEngine {
   private heavyLoaded = false;
   /** True from the first load event onward. isStyleLoaded() goes false whenever a tile is in flight, so it cannot gate setters. */
   private ready = false;
+  private revealed = false;
+  private revealTimer?: ReturnType<typeof setTimeout>;
   private waterFt = 0;
   private liveSteps: number[] = [];
   private gauges: GaugeDatum[] = [];
@@ -129,6 +135,21 @@ export class TideEngine {
       this.monoFamily = getComputedStyle(document.documentElement).getPropertyValue("--font-plex").trim() || "monospace";
     }
 
+    // The opaque land layer would cover the poster with flat color until imagery arrives, so the canvas stays transparent.
+    if (opts.secondary) {
+      this.revealed = true;
+    } else {
+      this.map.getCanvas().style.opacity = "0";
+      this.revealTimer = setTimeout(() => this.reveal(), REVEAL_CAP_MS);
+      // A gesture reveals right away. Setup calls like setPadding also fire movestart, without an originalEvent.
+      this.map.on("movestart", (e) => {
+        if (e.originalEvent) this.reveal();
+      });
+      this.map.on("sourcedata", (e) => {
+        if (e.sourceId === "imagery" && e.tile && this.map.isSourceLoaded("imagery")) this.reveal();
+      });
+    }
+
     this.map.on("load", () => {
       if (this.destroyed) return;
       this.ready = true;
@@ -145,7 +166,22 @@ export class TideEngine {
       this.scheduleCallouts();
       this.renderDeck();
     });
-    this.map.on("idle", () => this.scheduleCallouts());
+    this.map.on("idle", () => {
+      // Idle can fire before the imagery source exists, when the flat basemap alone has finished.
+      if (this.heavyLoaded) this.reveal();
+      this.scheduleCallouts();
+    });
+  }
+
+  /** Fades the canvas in over the poster, then places the callouts. */
+  private reveal() {
+    if (this.revealed || this.destroyed) return;
+    this.revealed = true;
+    clearTimeout(this.revealTimer);
+    const canvas = this.map.getCanvas();
+    canvas.style.transition = `opacity ${this.opts.reducedMotion ? "0.01ms" : `${REVEAL_FADE_MS}ms ease-out`}`;
+    canvas.style.opacity = "1";
+    this.scheduleCallouts();
   }
 
   getView(): ViewState {
@@ -581,7 +617,7 @@ export class TideEngine {
   }
 
   private scheduleCallouts() {
-    if (this.calloutRaf || this.destroyed) return;
+    if (this.calloutRaf || this.destroyed || !this.revealed) return;
     this.calloutRaf = requestAnimationFrame(() => {
       this.calloutRaf = 0;
       this.layoutCallouts();
@@ -631,6 +667,7 @@ export class TideEngine {
 
   destroy() {
     this.destroyed = true;
+    clearTimeout(this.revealTimer);
     cancelAnimationFrame(this.calloutRaf);
     for (const { marker } of this.markers.values()) marker.remove();
     this.markers.clear();

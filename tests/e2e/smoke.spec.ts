@@ -64,6 +64,31 @@ test("moving the slider while tiles load still swaps the NOAA layer", async ({ p
     .toBeGreaterThan(0.5);
 });
 
+test("the poster stays up while imagery loads, and the map still appears if imagery never does", async ({ page }) => {
+  // These requests never answer, which is the slowest network possible.
+  await page.route("**://basemap.nationalmap.gov/**", () => undefined);
+  await page.goto("/");
+  const canvas = page.locator("canvas.maplibregl-canvas").first();
+  await canvas.waitFor({ state: "attached", timeout: 40_000 });
+  const attachedAt = Date.now();
+  expect(await canvas.evaluate((el) => (el as HTMLElement).style.opacity)).toBe("0");
+
+  // Nothing between the canvas and the poster may paint a color of its own.
+  const covers = await canvas.evaluate((el) => {
+    const found: string[] = [];
+    for (let n = el.parentElement; n && n.tagName !== "SECTION"; n = n.parentElement) {
+      const bg = getComputedStyle(n).backgroundColor;
+      if (bg !== "rgba(0, 0, 0, 0)") found.push(`${n.className}: ${bg}`);
+    }
+    return found;
+  });
+  expect(covers).toEqual([]);
+
+  await expect.poll(() => canvas.evaluate((el) => (el as HTMLElement).style.opacity), { timeout: 25_000 }).toBe("1");
+  // Only the time cap could have released it, so an earlier reveal means something else fired too soon.
+  expect(Date.now() - attachedAt).toBeGreaterThan(6000);
+});
+
 test("the scale bar sits on screen, clear of the panels", async ({ page }) => {
   await page.goto("/");
   const scale = page.locator(".maplibregl-ctrl-scale").first();
