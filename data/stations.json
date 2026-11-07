@@ -1,0 +1,611 @@
+{
+  "generatedAt": "2026-11-07T00:05:47.341Z",
+  "stations": [
+    {
+      "id": "9414290",
+      "slug": "san-francisco",
+      "name": "San Francisco",
+      "noaaName": "San Francisco",
+      "lat": 37.806305,
+      "lng": -122.46589,
+      "facing": 15,
+      "datums": {
+        "epoch": "1983-2001",
+        "mhhw": 5.84,
+        "mhw": 5.23,
+        "msl": 3.12,
+        "mlw": 1.13,
+        "mllw": 0,
+        "navd88": -0.06
+      },
+      "thresholds": {
+        "minor": 1.87,
+        "moderate": 2.8,
+        "major": 4.07,
+        "nwsMinor": 1.2,
+        "action": null
+      },
+      "floodDays": [
+        {
+          "metYear": 2012,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 93.7
+        },
+        {
+          "metYear": 2013,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2014,
+          "minor": 1,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2015,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2016,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2017,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2018,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2019,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2020,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2021,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2022,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2023,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 66.9
+        },
+        {
+          "metYear": 2024,
+          "minor": 1,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 76.7
+        },
+        {
+          "metYear": 2025,
+          "minor": 4,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2026,
+          "minor": 2,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        }
+      ]
+    },
+    {
+      "id": "9414523",
+      "slug": "redwood-city",
+      "name": "Redwood City",
+      "noaaName": "Redwood City",
+      "lat": 37.506813,
+      "lng": -122.21191,
+      "facing": 45,
+      "datums": {
+        "epoch": "1983-2001",
+        "mhhw": 8.2,
+        "mhw": 7.57,
+        "msl": 4.4,
+        "mlw": 1.2,
+        "mllw": 0,
+        "navd88": 1.18
+      },
+      "thresholds": {
+        "minor": null,
+        "moderate": null,
+        "major": null,
+        "nwsMinor": null,
+        "action": 1.96
+      },
+      "floodDays": []
+    },
+    {
+      "id": "9414750",
+      "slug": "alameda",
+      "name": "Alameda",
+      "noaaName": "Alameda",
+      "lat": 37.771954,
+      "lng": -122.30026,
+      "facing": 250,
+      "datums": {
+        "epoch": "1983-2001",
+        "mhhw": 6.6,
+        "mhw": 5.98,
+        "msl": 3.45,
+        "mlw": 1.14,
+        "mllw": 0,
+        "navd88": 0.23
+      },
+      "thresholds": {
+        "minor": 1.9,
+        "moderate": 2.82,
+        "major": 4.1,
+        "nwsMinor": null,
+        "action": null
+      },
+      "floodDays": [
+        {
+          "metYear": 2012,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2013,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2014,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2015,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2016,
+          "minor": 1,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2017,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2018,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2019,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2020,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2021,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2022,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2023,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2024,
+          "minor": 1,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2025,
+          "minor": 4,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2026,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        }
+      ]
+    },
+    {
+      "id": "9414863",
+      "slug": "richmond",
+      "name": "Richmond",
+      "noaaName": "Richmond",
+      "lat": 37.9283,
+      "lng": -122.4,
+      "facing": 235,
+      "datums": {
+        "epoch": "1983-2001",
+        "mhhw": 6.04,
+        "mhw": 5.43,
+        "msl": 3.25,
+        "mlw": 1.12,
+        "mllw": 0,
+        "navd88": -0.02
+      },
+      "thresholds": {
+        "minor": null,
+        "moderate": null,
+        "major": null,
+        "nwsMinor": null,
+        "action": 1.88
+      },
+      "floodDays": []
+    },
+    {
+      "id": "9415020",
+      "slug": "point-reyes",
+      "name": "Point Reyes",
+      "noaaName": "Point Reyes",
+      "lat": 37.994167,
+      "lng": -122.97361,
+      "facing": 130,
+      "datums": {
+        "epoch": "1983-2001",
+        "mhhw": 5.76,
+        "mhw": 5.1,
+        "msl": 3.1,
+        "mlw": 1.18,
+        "mllw": 0,
+        "navd88": 0.02
+      },
+      "thresholds": {
+        "minor": 1.87,
+        "moderate": 2.8,
+        "major": 4.07,
+        "nwsMinor": null,
+        "action": null
+      },
+      "floodDays": [
+        {
+          "metYear": 2012,
+          "minor": 2,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2013,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2014,
+          "minor": 1,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2015,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2016,
+          "minor": 8,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2017,
+          "minor": 1,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2018,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2019,
+          "minor": 1,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2020,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2021,
+          "minor": 1,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2022,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2023,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2024,
+          "minor": 1,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2025,
+          "minor": 8,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2026,
+          "minor": 6,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        }
+      ]
+    },
+    {
+      "id": "9415102",
+      "slug": "martinez",
+      "name": "Martinez",
+      "noaaName": "Martinez-Amorco Pier",
+      "lat": 38.0346,
+      "lng": -122.1252,
+      "facing": 340,
+      "datums": {
+        "epoch": "1983-2001",
+        "mhhw": 5.36,
+        "mhw": 4.84,
+        "msl": 2.86,
+        "mlw": 0.88,
+        "mllw": 0,
+        "navd88": -0.57
+      },
+      "thresholds": {
+        "minor": null,
+        "moderate": null,
+        "major": null,
+        "nwsMinor": null,
+        "action": 1.86
+      },
+      "floodDays": []
+    },
+    {
+      "id": "9415144",
+      "slug": "port-chicago",
+      "name": "Port Chicago",
+      "noaaName": "Port Chicago",
+      "lat": 38.056,
+      "lng": -122.0395,
+      "facing": 350,
+      "datums": {
+        "epoch": "1983-2001",
+        "mhhw": 4.91,
+        "mhw": 4.4,
+        "msl": 2.56,
+        "mlw": 0.74,
+        "mllw": 0,
+        "navd88": -1.1
+      },
+      "thresholds": {
+        "minor": 1.84,
+        "moderate": 2.77,
+        "major": 4.04,
+        "nwsMinor": null,
+        "action": null
+      },
+      "floodDays": [
+        {
+          "metYear": 2012,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2013,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2014,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 83.3
+        },
+        {
+          "metYear": 2015,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 98.4
+        },
+        {
+          "metYear": 2016,
+          "minor": 7,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2017,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2018,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2019,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2020,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2021,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2022,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2023,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2024,
+          "minor": 1,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2025,
+          "minor": 3,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        },
+        {
+          "metYear": 2026,
+          "minor": 0,
+          "moderate": 0,
+          "major": 0,
+          "completeness": 100
+        }
+      ]
+    }
+  ]
+}

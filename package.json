@@ -1,0 +1,58 @@
+{
+  "name": "tideline",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "check-sources": "tsx scripts/check-sources.ts",
+    "build:stations": "tsx scripts/build-stations.ts",
+    "build:spots": "tsx scripts/build-spots.ts",
+    "copy-check": "bash scripts/copy-check.sh",
+    "colorblind": "tsx scripts/colorblind-check.ts",
+    "crawl": "tsx scripts/crawl-links.ts",
+    "lighthouse": "node scripts/lighthouse.mjs"
+  },
+  "dependencies": {
+    "@deck.gl/core": "^9.4.1",
+    "@deck.gl/layers": "^9.4.1",
+    "@deck.gl/mapbox": "^9.4.1",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/schibsted-grotesk": "^5.3.0",
+    "d3-scale": "^4.0.3",
+    "d3-shape": "^3.2.1",
+    "maplibre-gl": "~5.24.0",
+    "next": "16.4.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "^0.0.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "@tailwindcss/postcss": "^4.3.5",
+    "@types/d3-scale": "^4.0.9",
+    "@types/d3-shape": "^3.2.0",
+    "@types/node": "^22.20.5",
+    "@types/pngjs": "^6.0.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "chrome-launcher": "^1.2.3",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.4.5",
+    "lighthouse": "^13.6.0",
+    "pngjs": "^7.0.0",
+    "tailwindcss": "^4.3.5",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^5.1.0"
+  }
+}
