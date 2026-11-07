@@ -1,0 +1,30 @@
+# dependencies
+node_modules/
+
+# next
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# env
+.env
+.env.*
+!.env.example
+
+# test output
+playwright-report/
+test-results/
+coverage/
+lighthouse/*.json
+lighthouse/*.html
+
+# os and removable-drive noise
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+
+# vercel local state
+.vercel/
