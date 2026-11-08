@@ -8,12 +8,22 @@ interface Props {
   onFullscreen: () => void;
   isFullscreen: boolean;
   webgl2: boolean;
+  exaggeration: number;
+  onExaggeration: (x: number) => void;
+}
+
+/** Terrain height steps. Low shoreline reads best at 3x, the default. */
+export const EXAGGERATIONS = [1, 2, 3, 5] as const;
+
+export function nextExaggeration(x: number): number {
+  const i = EXAGGERATIONS.findIndex((v) => v === x);
+  return EXAGGERATIONS[(i + 1) % EXAGGERATIONS.length];
 }
 
 const BTN = "flex h-11 min-w-11 items-center justify-center bg-panel text-ink hover:bg-sunk md:h-9 md:min-w-9";
 
 /** Bottom-right cluster: 2D or 3D, compass, and fullscreen. */
-export function MapControls({ is3D, on3D, bearing, onResetBearing, onFullscreen, isFullscreen, webgl2 }: Props) {
+export function MapControls({ is3D, on3D, bearing, onResetBearing, onFullscreen, isFullscreen, webgl2, exaggeration, onExaggeration }: Props) {
   return (
     <div className="pointer-events-auto flex items-center gap-1.5">
       {webgl2 ? (
@@ -25,6 +35,18 @@ export function MapControls({ is3D, on3D, bearing, onResetBearing, onFullscreen,
             3D
           </button>
         </div>
+      ) : null}
+      {webgl2 && is3D ? (
+        <button
+          type="button"
+          className={`${BTN} num rounded border border-line px-2 text-[13px]`}
+          onClick={() => onExaggeration(nextExaggeration(exaggeration))}
+          aria-label={`Terrain height ${exaggeration} times true scale. Press for ${nextExaggeration(exaggeration)} times.`}
+          title="Terrain height"
+          data-testid="exaggeration"
+        >
+          {exaggeration}x
+        </button>
       ) : null}
       <button type="button" className={`${BTN} rounded border border-line`} onClick={onResetBearing} aria-label={`Reset bearing to north. Bearing is ${Math.round(bearing)} degrees`}>
         <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden style={{ rotate: `${-bearing}deg` }}>

@@ -1,7 +1,7 @@
 // The imperative map: MapLibre with an interleaved deck.gl overlay. React holds the state and
 // calls these methods. Nothing here renders React, so tide playback never re-renders the page.
 import maplibregl from "maplibre-gl";
-import type { Map as MLMap, Marker } from "maplibre-gl";
+import type { GeoJSONSource, Map as MLMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import { ColumnLayer, IconLayer, TextLayer } from "@deck.gl/layers";
@@ -11,6 +11,8 @@ import { SLR_MAX_ZOOM } from "@/lib/sources/slr";
 import { DEFAULT_LAYERS, type LayerSettings } from "./layers";
 import { registerProtocols, type SlrPaint } from "./protocols";
 import { baseStyle, BEFORE_BUILDINGS, BEFORE_FLOOD_LAYERS, BEFORE_WATER_LAYERS } from "./style";
+import { classAtPoint } from "./slr-cache";
+import { footprints, wetCollection, type FootprintFeature } from "./wet-buildings";
 
 /** The poster stays up until imagery paints. After this long the canvas shows whatever has arrived. */
 const REVEAL_CAP_MS = 8000;
@@ -64,6 +66,8 @@ export interface EngineOptions {
   onPickGauge?: (id: string) => void;
   /** A tap on open map, away from any gauge. */
   onPickPoint?: (p: { lng: number; lat: number }) => void;
+  /** Buildings on screen inside the mapped water, or null when the check is off (2D, zoomed out, or 0 ft). */
+  onWetBuildings?: (wet: { n: number; ft: number } | null) => void;
 }
 
 const WATER_RGB = hexToRgb(COLOR.water);
@@ -111,6 +115,10 @@ const MAX_LIVE_STEPS = 4;
 const WATER_LINE_ANCHOR = "water-line-anchor";
 
 const TERRAIN_SRC = "terrain-dem";
+const WET_SRC = "buildings-wet";
+const EMPTY_FC = { type: "FeatureCollection" as const, features: [] };
+/** Imagery tile failures in a row before the imagery layer hides and the vector basemap carries on. */
+const IMAGERY_FAIL_LIMIT = 3;
 const HILLSHADE_SRC = "hillshade-dem";
 
 /** Ground meters per CSS pixel at a latitude and zoom. */
@@ -139,6 +147,9 @@ export class TideEngine {
   private calloutRaf = 0;
   private destroyed = false;
   private monoFamily = "monospace";
+  private wetTimer?: ReturnType<typeof setTimeout>;
+  private wetSeq = 0;
+  private imageryFails = 0;
 
   constructor(opts: EngineOptions) {
     this.opts = opts;
@@ -199,7 +210,21 @@ export class TideEngine {
       const idle = window.requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 200));
       idle(() => this.loadHeavyLayers());
     });
-    this.map.on("moveend", () => this.opts.onView?.(this.getView()));
+    this.map.on("moveend", () => {
+      this.opts.onView?.(this.getView());
+      this.scheduleWet();
+    });
+    this.map.on("error", (e) => {
+      if ((e as { sourceId?: string }).sourceId !== "imagery") return;
+      this.imageryFails += 1;
+      if (this.imageryFails >= IMAGERY_FAIL_LIMIT && this.map.getLayer("imagery")) {
+        this.map.setLayoutProperty("imagery", "visibility", "none");
+        console.warn("Tideline: imagery tiles keep failing, so the imagery layer is hidden.");
+      }
+    });
+    this.map.on("sourcedata", (e) => {
+      if (e.sourceId === "imagery" && e.tile) this.imageryFails = 0;
+    });
     this.map.on("click", (e) => {
       // A tap on a gauge staff picks the gauge. Anything else checks that place.
       const hit = this.overlay?.pickObject({ x: e.point.x, y: e.point.y, radius: 6 });
@@ -248,7 +273,7 @@ export class TideEngine {
 
     m.addSource("imagery", {
       type: "raster",
-      tiles: ["https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}"],
+      tiles: ["tideimg://{z}/{y}/{x}"],
       tileSize: 256,
       maxzoom: 16,
       attribution: '<a href="https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer">USGS National Map imagery</a>',
@@ -261,11 +286,6 @@ export class TideEngine {
         layout: { visibility: this.layers.imagery.on ? "visible" : "none" },
         paint: {
           "raster-opacity": this.layers.imagery.opacity,
-          "raster-saturation": -0.22,
-          "raster-hue-rotate": -5,
-          "raster-contrast": -0.06,
-          "raster-brightness-min": 0.08,
-          "raster-brightness-max": 1,
           "raster-fade-duration": this.opts.reducedMotion ? 0 : 200,
         },
       },
@@ -313,8 +333,27 @@ export class TideEngine {
       },
       BEFORE_BUILDINGS,
     );
+    if (!this.opts.secondary) {
+      m.addSource(WET_SRC, { type: "geojson", data: EMPTY_FC });
+      m.addLayer(
+        {
+          id: WET_SRC,
+          type: "fill-extrusion",
+          source: WET_SRC,
+          layout: { visibility: this.layers.buildings.on && this.threeD ? "visible" : "none" },
+          paint: {
+            "fill-extrusion-color": COLOR.coral,
+            "fill-extrusion-opacity": 0.92,
+            "fill-extrusion-height": ["get", "height"],
+            "fill-extrusion-base": ["get", "base"],
+          },
+        },
+        BEFORE_BUILDINGS,
+      );
+    }
 
     this.setConfidenceLayer();
+    this.scheduleWet();
     this.opts.onStage?.("full");
     this.renderDeck();
     this.renderFlatGauges();
@@ -374,6 +413,7 @@ export class TideEngine {
       return;
     }
     if (!changed && !force) return;
+    if (Math.floor(next) !== Math.floor(this.waterShown) || force) this.scheduleWet();
     if (force || this.opts.reducedMotion) {
       this.waterShown = next;
       this.paintWater();
@@ -484,6 +524,8 @@ export class TideEngine {
       m.setLayoutProperty("building", "visibility", next.buildings.on && this.threeD ? "visible" : "none");
       m.setPaintProperty("building", "fill-extrusion-opacity", next.buildings.opacity);
     }
+    if (m.getLayer(WET_SRC)) m.setLayoutProperty(WET_SRC, "visibility", next.buildings.on && this.threeD ? "visible" : "none");
+    this.scheduleWet();
     this.syncTerrain();
     this.paintWater();
     this.setConfidenceLayer();
@@ -515,11 +557,43 @@ export class TideEngine {
     this.threeD = on;
     this.syncTerrain();
     if (this.map.getLayer("building")) this.map.setLayoutProperty("building", "visibility", on && this.layers.buildings.on ? "visible" : "none");
+    if (this.map.getLayer(WET_SRC)) this.map.setLayoutProperty(WET_SRC, "visibility", on && this.layers.buildings.on ? "visible" : "none");
+    this.scheduleWet();
     const duration = this.opts.reducedMotion ? 0 : 400;
     if (on) this.map.easeTo({ pitch: this.opts.phone ? 55 : 62, bearing: 70, duration });
     else this.map.easeTo({ pitch: 0, bearing: 0, duration });
     this.renderDeck();
     this.renderFlatGauges();
+  }
+
+  // Buildings in the water ---------------------------------------------------
+
+  private scheduleWet() {
+    if (this.opts.secondary || !this.opts.onWetBuildings) return;
+    clearTimeout(this.wetTimer);
+    this.wetTimer = setTimeout(() => void this.updateWet(), 250);
+  }
+
+  /** Tests each building center on screen against NOAA's class at the whole foot the fill shows. */
+  private async updateWet() {
+    const m = this.map;
+    const report = this.opts.onWetBuildings;
+    if (!report || this.destroyed) return;
+    const src = m.getSource(WET_SRC) as GeoJSONSource | undefined;
+    const ft = Math.floor(this.waterTarget);
+    const minZoom = this.opts.phone ? 15.5 : 15;
+    const seq = ++this.wetSeq;
+    if (!src || !m.getLayer("building") || !this.threeD || !this.layers.buildings.on || ft < 1 || m.getZoom() < minZoom) {
+      src?.setData(EMPTY_FC);
+      report(null);
+      return;
+    }
+    const prints = footprints(m.queryRenderedFeatures({ layers: ["building"] }) as unknown as FootprintFeature[], this.opts.phone ? 600 : 1500);
+    const classes = await Promise.all(prints.map((p) => classAtPoint(ft, p.center[0], p.center[1])));
+    if (seq !== this.wetSeq || this.destroyed) return;
+    const wet = prints.filter((_, i) => classes[i] === "flooded");
+    src.setData(wetCollection(wet));
+    report({ n: wet.length, ft });
   }
 
   resetBearing() {
@@ -861,6 +935,7 @@ export class TideEngine {
   }
 
   destroy() {
+    clearTimeout(this.wetTimer);
     this.destroyed = true;
     this.pin?.remove();
     clearTimeout(this.revealTimer);

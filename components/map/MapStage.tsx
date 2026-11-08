@@ -24,6 +24,9 @@ interface Props {
   compare: boolean;
   compareFt: number;
   exaggeration: number;
+  onExaggeration: (x: number) => void;
+  /** Called with the buildings on screen inside the mapped water and the foot tested, or null when the check is off. */
+  onWetBuildings: (wet: { n: number; ft: number } | null) => void;
   is3D: boolean;
   on3D: (on: boolean) => void;
   playhead: Playhead;
@@ -71,6 +74,7 @@ export default function MapStage(props: Props) {
       onPickGauge: (id) => latest.current.onPickGauge(id),
       onPickPoint: (p) => latest.current.onPickPoint(p),
       onStage: (s) => latest.current.onStage(s),
+      onWetBuildings: (w) => latest.current.onWetBuildings(w),
     });
     engine.current = e;
     e.setLayers(latest.current.layers);
@@ -215,6 +219,8 @@ export default function MapStage(props: Props) {
           onFullscreen={toggleFullscreen}
           isFullscreen={fullscreen}
           webgl2={webgl2}
+          exaggeration={exaggeration}
+          onExaggeration={props.onExaggeration}
         />
       </div>
     </>

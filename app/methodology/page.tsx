@@ -113,7 +113,7 @@ export default async function MethodologyPage() {
         </p>
         <h3>Map layers</h3>
         <p>
-          Aerial imagery comes from the <a href={LINKS.usgsImagery}>USGS National Map</a>, which is public domain. It shows banding over open water, so a flat water tint from <a href={LINKS.openFreeMap}>OpenFreeMap</a> covers the Bay. Terrain comes from <a href={LINKS.awsTerrain}>AWS Terrain Tiles (Mapzen)</a> in Terrarium encoding. That dataset includes Bay bathymetry, and Tideline sets everything below sea level to zero so the Bay stays one flat surface at 3x exaggeration. Roads, labels, and building footprints come from OpenFreeMap with <a href={LINKS.osm}>OpenStreetMap</a> data.
+          Aerial imagery comes from the <a href={LINKS.usgsImagery}>USGS National Map</a>, which is public domain. It shows banding over open water, so a flat water tint from <a href={LINKS.openFreeMap}>OpenFreeMap</a> covers the Bay. Terrain comes from <a href={LINKS.awsTerrain}>AWS Terrain Tiles (Mapzen)</a> in Terrarium encoding. That dataset includes Bay bathymetry, and Tideline sets everything below sea level to zero so the Bay stays one flat surface at 3x exaggeration, and the terrain control offers 1x, 2x, 3x, and 5x. The imagery is recolored onto a gray-blue ramp, keeping a quarter of the original color, so the water steps stand out. Roads, labels, and building footprints come from OpenFreeMap with <a href={LINKS.osm}>OpenStreetMap</a> data.
         </p>
 
         <h2>How each number is calculated</h2>
@@ -159,7 +159,7 @@ export default async function MethodologyPage() {
 
         <h2>What this tool cannot tell you</h2>
         <p>
-          It cannot tell you whether a given street will flood on a given day. Predictions leave out weather. The sea level rise layers leave out storms and waves. They also miss storm drains and recent levees. A point query reports what a screening map shows at a pixel, so a flooded step on a spot page is a reason to go look. A site survey is the real test.
+          It cannot tell you whether a given street will flood on a given day. Predictions leave out weather. The sea level rise layers leave out storms and waves. They also miss storm drains and recent levees. A point query reports what a screening map shows at a pixel, so a flooded step on a spot page is a reason to go look. Buildings turn coral in 3D when the center of their footprint falls inside NOAA's connected mapped water at the whole foot the map shows. That is one point per building tested against a screening layer, so a coral building may stay dry and a gray one may not. A site survey is the real test.
         </p>
         <p>
           Spot tide times come from the nearest active gauge, which can be miles away, and the local peak can differ. The future-tide equivalent assumes tides keep today&apos;s shape, and real tidal range can shift as the Bay deepens. Sea level rise on this site is a set of what-if steps with no dates attached. Tideline makes no forecast of when any step arrives.

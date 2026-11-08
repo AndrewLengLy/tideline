@@ -3,8 +3,10 @@
 import maplibregl from "maplibre-gl";
 import { confTileUrl, paintBand, paintEdge, paintFill, recolorConfTile } from "@/lib/sources/slr";
 import { classes } from "./slr-cache";
+import { buildLut, IMAGERY_CONTRAST, IMAGERY_PHOTO, IMAGERY_RAMP, tintPixels } from "./tint";
 
 const TERRAIN = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium";
+const IMAGERY = "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile";
 const SIZE = 256;
 
 let registered = false;
@@ -83,6 +85,14 @@ export function registerProtocols() {
     const m = /^tideterrain:\/\/(\d+)\/(\d+)\/(\d+)/.exec(params.url);
     if (!m) throw new Error(`Bad tile URL ${params.url}`);
     return repaint(`${TERRAIN}/${m[1]}/${m[2]}/${m[3]}.png`, abort.signal, flattenSeaFloor);
+  });
+
+  // tideimg://{z}/{y}/{x}. USGS imagery recolored through IMAGERY_RAMP, the stand-in for Mapbox raster-color.
+  const lut = buildLut(IMAGERY_RAMP);
+  maplibregl.addProtocol("tideimg", async (params, abort) => {
+    const m = /^tideimg:\/\/(\d+)\/(\d+)\/(\d+)/.exec(params.url);
+    if (!m) throw new Error(`Bad tile URL ${params.url}`);
+    return repaint(`${IMAGERY}/${m[1]}/${m[2]}/${m[3]}`, abort.signal, (d) => tintPixels(d, lut, IMAGERY_CONTRAST, IMAGERY_PHOTO));
   });
 }
 
