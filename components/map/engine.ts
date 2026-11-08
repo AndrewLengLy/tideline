@@ -72,14 +72,30 @@ const INK_RGB = hexToRgb(COLOR.ink);
 const PEDESTAL_FT = 7;
 const FRAME_FT = 10;
 const PERSON_FT = 6;
-/** A 6 ft person who stands on the high-tide line beside each staff. Drawn as a mask and tinted ink. */
-const PERSON_ICON = {
-  url: `data:image/svg+xml;utf8,${encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='40' height='120' viewBox='0 0 40 120'><circle cx='20' cy='10.5' r='9.5'/><path d='M11 23h18a6 6 0 0 1 6 6v36h-6.5v54h-7.5V71h-2v48h-7.5V65H5V29a6 6 0 0 1 6-6z'/></svg>")}`,
-  width: 40,
-  height: 120,
-  anchorY: 120,
-  mask: true,
-};
+/**
+ * A 6 ft person who stands on the high-tide line beside each staff, drawn as a mask and tinted ink.
+ * The icon is painted on a canvas, since the site's content policy blocks deck.gl from fetching
+ * a data URL.
+ */
+const PERSON_W = 40;
+const PERSON_H = 120;
+let personAtlas: HTMLCanvasElement | null = null;
+function getPersonAtlas(): HTMLCanvasElement {
+  if (personAtlas) return personAtlas;
+  const c = document.createElement("canvas");
+  c.width = PERSON_W * 2;
+  c.height = PERSON_H * 2;
+  const ctx = c.getContext("2d")!;
+  ctx.scale(2, 2);
+  ctx.fillStyle = "#000";
+  ctx.beginPath();
+  ctx.arc(20, 10.5, 9.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fill(new Path2D("M11 23h18a6 6 0 0 1 6 6v36h-6.5v54h-7.5V71h-2v48h-7.5V65H5V29a6 6 0 0 1 6-6z"));
+  personAtlas = c;
+  return c;
+}
+const PERSON_MAPPING = { person: { x: 0, y: 0, width: PERSON_W * 2, height: PERSON_H * 2, anchorY: PERSON_H * 2, mask: true } };
 
 interface Tick {
   g: GaugeDatum;
@@ -573,9 +589,9 @@ export class TideEngine {
 
     const base = (d: GaugeDatum) => this.groundZ(d.lng, d.lat);
     const mhhwZ = (d: GaugeDatum) => base(d) + PEDESTAL_FT * scale;
-    // The person stands to the screen right of the staff, whatever the bearing.
+    // The person stands to the screen left of the staff, whatever the bearing. Callout cards hang to the right.
     const rad = (this.map.getBearing() * Math.PI) / 180;
-    const sideM = radius * 4.2;
+    const sideM = -radius * 4.2;
     const beside = (d: GaugeDatum): [number, number] => [
       d.lng + (sideM * Math.cos(rad)) / (111320 * Math.cos((d.lat * Math.PI) / 180)),
       d.lat - (sideM * Math.sin(rad)) / 110540,
@@ -671,7 +687,9 @@ export class TideEngine {
           data,
           billboard: true,
           sizeUnits: "meters",
-          getIcon: () => PERSON_ICON,
+          iconAtlas: getPersonAtlas() as unknown as string,
+          iconMapping: PERSON_MAPPING,
+          getIcon: () => "person",
           getPosition: (d) => [...beside(d), mhhwZ(d)],
           getSize: () => PERSON_FT * scale,
           getColor: [INK_RGB[0], INK_RGB[1], INK_RGB[2], Math.round(alpha * 0.9)],
