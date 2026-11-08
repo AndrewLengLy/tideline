@@ -163,6 +163,14 @@ export function LayerRows({ layers, onChange, followTide, onFollowTide }: Props)
         </p>
         <p className="flex items-start gap-2">
           <svg width="16" height="16" viewBox="0 0 16 16" className="mt-0.5 shrink-0" aria-hidden>
+            <path d="M0 9C3 2 5 2 8 9s5 7 8 0" fill="none" stroke="#0077b6" strokeWidth="1.2" />
+            <circle cx="4" cy="4" r="2" fill="#e76f51" stroke="#0d2230" />
+            <circle cx="12" cy="13" r="1.6" fill="#f8fafb" stroke="#0d2230" />
+          </svg>
+          <span>Timeline: dark dots mark high tides and rings mark low tides. The highest high and lowest low in view are larger and labeled. Near a turn, the time line names it.</span>
+        </p>
+        <p className="flex items-start gap-2">
+          <svg width="16" height="16" viewBox="0 0 16 16" className="mt-0.5 shrink-0" aria-hidden>
             <rect x="2" y="4" width="4" height="12" fill="#0077b6" />
             <path d="M0 8h8M1 11h6M1 14h6" stroke="#0d2230" strokeWidth="0.8" />
             <path d="M0 6h16" stroke="#0d2230" strokeWidth="1.6" />

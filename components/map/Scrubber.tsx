@@ -3,7 +3,8 @@
 import { useMemo, useRef } from "react";
 import { scaleLinear } from "d3-scale";
 import { area, curveMonotoneX } from "d3-shape";
-import { fmtDateTime, fmtShortDay } from "@/lib/format";
+import { fmtDateTime, fmtShortDay, fmtTime } from "@/lib/format";
+import { findTurns, type Turn } from "@/lib/metrics/turns";
 import { addDays, dayStart, pacificDay } from "@/lib/time";
 import { type Playhead, type Speed, usePlayheadIndex } from "./playhead";
 
@@ -34,7 +35,7 @@ interface Props {
 
 const SPEEDS: Speed[] = [1, 4, 16];
 
-/** Shared timeline scrubber: play, speed, drag, arrow keys, a now marker, and event marks on the track. */
+/** Shared timeline scrubber: play, speed, drag, arrow keys, a now marker, high and low tide marks, and event marks on the track. */
 export function Scrubber(props: Props) {
   const { playhead, t0, stepMs, count, series, playing, onPlaying, speed, onSpeed, nowIndex, loaded, events } = props;
   const track = useRef<HTMLDivElement>(null);
@@ -44,8 +45,9 @@ export function Scrubber(props: Props) {
   const isNow = Math.abs(index - nowIndex) <= 1;
   const readout = props.readout?.(Math.min(index, count - 1)) ?? "";
 
-  const path = useMemo(() => {
-    if (!series || count < 2) return "";
+  const { path, yOf } = useMemo(() => {
+    const none = { path: "", yOf: null as ((v: number) => number) | null };
+    if (!series || count < 2) return none;
     let min = Infinity;
     let max = -Infinity;
     for (const v of series) {
@@ -53,14 +55,23 @@ export function Scrubber(props: Props) {
       if (v < min) min = v;
       if (v > max) max = v;
     }
-    if (!Number.isFinite(min)) return "";
+    if (!Number.isFinite(min)) return none;
     const x = scaleLinear().domain([0, count - 1]).range([0, 1000]);
     const y = scaleLinear().domain([min - 0.5, max]).range([30, 2]);
     const every = 3;
     const pts: [number, number][] = [];
     for (let i = 0; i < count; i += every) if (!Number.isNaN(series[i])) pts.push([x(i), y(series[i])]);
-    return area<[number, number]>().x((d) => d[0]).y0(30).y1((d) => d[1]).curve(curveMonotoneX)(pts) ?? "";
+    return { path: area<[number, number]>().x((d) => d[0]).y0(30).y1((d) => d[1]).curve(curveMonotoneX)(pts) ?? "", yOf: (v: number) => y(v) };
   }, [series, count]);
+
+  // Every high and low tide in view, with the highest high and lowest low called out.
+  const turns = useMemo(() => (series && count > 2 ? findTurns(series.subarray ? series.subarray(0, count) : series, stepMs) : []), [series, count, stepMs]);
+  // Within 18 minutes of a turn, the time line names it, so phones without hover still see it.
+  const near: Turn | null = useMemo(() => {
+    let best: Turn | null = null;
+    for (const tn of turns) if (Math.abs(tn.index - index) <= 3 && (!best || Math.abs(tn.index - index) < Math.abs(best.index - index))) best = tn;
+    return best;
+  }, [turns, index]);
 
   const days = useMemo(() => {
     const out: { pct: number; label: string; day: string }[] = [];
@@ -146,6 +157,11 @@ export function Scrubber(props: Props) {
           <span className="num truncate text-ink" data-testid="scrub-time">
             {fmtDateTime(t)}
             {isNow ? <span className="ml-1.5 text-water">now</span> : null}
+            {near ? (
+              <span className="ml-1.5 text-muted" data-testid="scrub-turn">
+                {turnName(near)}, {near.value.toFixed(1)} ft
+              </span>
+            ) : null}
           </span>
           {readout ? <span className="num hidden shrink-0 text-muted sm:inline">{readout}</span> : null}
         </div>
@@ -157,7 +173,7 @@ export function Scrubber(props: Props) {
           aria-valuemin={0}
           aria-valuemax={Math.max(0, count - 1)}
           aria-valuenow={Math.min(index, count - 1)}
-          aria-valuetext={`${fmtDateTime(t)}${readout ? `, ${readout}` : ""}${isNow ? ", now" : ""}`}
+          aria-valuetext={`${fmtDateTime(t)}${readout ? `, ${readout}` : ""}${near ? `, ${turnName(near)}` : ""}${isNow ? ", now" : ""}`}
           onKeyDown={onKey}
           onPointerDown={(e) => {
             (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
@@ -202,6 +218,26 @@ export function Scrubber(props: Props) {
               )}
             </div>
           ))}
+          {yOf
+            ? turns.map((tn) => {
+                const left = (tn.index / Math.max(1, count - 1)) * 100;
+                const size = tn.peak ? 9 : 5;
+                const label = `${turnName(tn)}, ${tn.value.toFixed(1)} ft at ${fmtTime(t0 + tn.index * stepMs)}`;
+                return (
+                  <div key={`${tn.kind}-${tn.index}`} className="pointer-events-none absolute" style={{ left: `${left}%`, top: yOf(tn.value) }} title={label} data-testid={`turn-${tn.kind}${tn.peak ? "-peak" : ""}`} aria-hidden>
+                    <span
+                      className={`absolute block rounded-full border ${tn.kind === "high" ? (tn.peak ? "border-ink bg-coral" : "border-ink bg-ink") : tn.peak ? "border-water bg-panel" : "border-ink bg-panel"}`}
+                      style={{ width: size, height: size, left: -size / 2, top: -size / 2, borderWidth: tn.peak ? 1.5 : 1 }}
+                    />
+                    {tn.peak ? (
+                      <span className={`num absolute whitespace-nowrap rounded-sm bg-panel/90 px-1 text-[10px] leading-[13px] text-ink ${left > 80 ? "right-[7px]" : "left-[7px]"} ${tn.kind === "high" ? "-top-[3px]" : "-top-[15px]"}`}>
+                        {tn.kind === "high" ? "Highest" : "Lowest"} {tn.value.toFixed(1)} ft
+                      </span>
+                    ) : null}
+                  </div>
+                );
+              })
+            : null}
           {nowIndex >= 0 && nowIndex < count ? (
             <div className="absolute top-0 h-[30px] w-px bg-ink/70" style={{ left: `${(nowIndex / Math.max(1, count - 1)) * 100}%` }} data-testid="now-marker" aria-hidden>
               <span className="num absolute -top-px left-1 text-[10px] leading-3 text-ink">now</span>
@@ -214,4 +250,9 @@ export function Scrubber(props: Props) {
       </div>
     </div>
   );
+}
+
+function turnName(tn: Turn): string {
+  if (tn.peak) return tn.kind === "high" ? "Highest high tide in view" : "Lowest low tide in view";
+  return tn.kind === "high" ? "High tide" : "Low tide";
 }
