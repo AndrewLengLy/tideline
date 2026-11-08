@@ -111,7 +111,7 @@ export interface Place {
 
 /** The slim shapes the map page sends to the browser. Detail pages carry the rest. */
 export type MapStation = Omit<Station, "floodDays" | "noaaName">;
-export type MapSpot = Pick<Spot, "slug" | "name" | "lat" | "lng" | "facing" | "nearestStationId">;
+export type MapSpot = Pick<Spot, "slug" | "name" | "lat" | "lng" | "facing" | "nearestStationId" | "fact" | "floodingReported" | "firstFloodFt">;
 export type MapPlace = Pick<Place, "name" | "firstFloodFt">;
 export interface MapStationOverview {
   stationId: string;

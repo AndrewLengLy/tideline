@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fmtMonthDay, fmtTime, ft as fmtFt, signedFt } from "@/lib/format";
+import { fmtMonthDay, fmtTime, ft as fmtFt, vsHighTide } from "@/lib/format";
 import { futureTideEquivalent, kingTideSentence } from "@/lib/metrics/king-tides";
 import { POSTER_DESKTOP, POSTER_PHONE } from "@/lib/poster";
 import { DEFAULT_STATION_ID, DEFAULT_VIEW, PHONE_VIEW } from "@/lib/site";
@@ -24,6 +24,7 @@ import { NotesTab } from "./NotesTab";
 import { Sidebar, Tabs, type TabId } from "./Sidebar";
 import { StationSummary } from "./StationSummary";
 import { DateRange, TopBar } from "./TopBar";
+import { GoSeeIt } from "./GoSeeIt";
 
 const MapStage = dynamic(() => import("../map/MapStage"), { ssr: false });
 
@@ -60,7 +61,7 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
   const [is3D, setIs3D] = useState(true);
   const [compare, setCompare] = useState(false);
   const [from, setFrom] = useState(() => pacificDay(initialNow - 3 * DAY));
-  const [tab, setTab] = useState<TabId>("layers");
+  const [tab, setTab] = useState<TabId>("visit");
   const [snap, setSnap] = useState<Snap>(0);
   const [sheetH, setSheetH] = useState(PEEK_HEIGHT);
   const [playing, setPlaying] = useState(false);
@@ -69,8 +70,9 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
   const [boot, setBoot] = useState<{ view: ViewState; phone: boolean; webgl2: boolean } | null>(null);
   const [now, setNow] = useState(initialNow);
   const [touched, setTouched] = useState(false);
+  const [sliderTip, setSliderTip] = useState(false);
   const [layout, setLayout] = useState<"pending" | "phone" | "desktop">("pending");
-  const [tide, setTide] = useState({ effective: 0, add: 0 });
+  const [tide, setTide] = useState({ effective: 0, level: 0, add: 0 });
   const viewRef = useRef<ViewState | null>(null);
 
   const playhead = useMemo(() => new Playhead(), []);
@@ -89,6 +91,13 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
   }, [places]);
 
   usePlayback(playhead, frames.count, playing, speed, () => setPlaying(false));
+
+  // Phones have little room beside the slider, so the tip clears itself after a few seconds there.
+  useEffect(() => {
+    if (!sliderTip || layout !== "phone") return;
+    const t = setTimeout(() => setSliderTip(false), 6000);
+    return () => clearTimeout(t);
+  }, [sliderTip, ft, layout]);
 
   useEffect(() => {
     const query = window.matchMedia("(min-width: 1024px)");
@@ -159,7 +168,8 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
     return l ? l.value - (stationById(stationId)?.datums.mhhw ?? 0) : null;
   }, [frames, stationId, playhead, stationById]);
 
-  // The water layer follows the tide: water above MHHW at the selected gauge raises the layer to the nearest foot.
+  // The water layer follows the tide: water above MHHW at the selected gauge raises the layer. The map
+  // draws the exact level, and the panels name the nearest whole foot.
   const followRef = useRef({ ft, followTide, selectedLevel });
   useEffect(() => {
     followRef.current = { ft, followTide, selectedLevel };
@@ -169,9 +179,10 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
       const { ft: f, followTide: follow, selectedLevel: read } = followRef.current;
       const above = read();
       const add = follow && above !== null ? Math.max(0, above) : 0;
-      const effective = Math.max(0, Math.min(10, Math.round(f + add)));
+      const level = Math.max(0, Math.min(10, Math.round((f + add) * 20) / 20));
+      const effective = Math.round(level);
       const roundedAdd = Math.round(add * 10) / 10;
-      setTide((prev) => (prev.effective === effective && prev.add === roundedAdd ? prev : { effective, add: roundedAdd }));
+      setTide((prev) => (prev.level === level && prev.add === roundedAdd ? prev : { effective, level, add: roundedAdd }));
     };
     update();
     return playhead.subscribe(update);
@@ -314,7 +325,7 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
       if (!l) return "";
       const s = stationById(stationId);
       const above = l.value - (s?.datums.mhhw ?? 0);
-      return `${s?.name} ${fmtFt(l.value)} MLLW, ${signedFt(above)} MHHW, ${l.kind}`;
+      return `${s?.name} ${fmtFt(l.value)} MLLW, ${vsHighTide(above)}, ${l.kind}`;
     },
     [frames, stationId, stationById],
   );
@@ -370,6 +381,7 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
   const panelBody = (t: TabId, mobile: boolean) => {
     if (t === "layers") return <LayerRows layers={layers} onChange={onLayer} followTide={followTide} onFollowTide={setFollowTide} />;
     if (t === "notes") return <NotesTab />;
+    if (t === "visit") return <GoSeeIt station={station} next={next} spots={spots} onSpot={onSpot} onShowTide={goTo} />;
     return (
       <div className="space-y-4">
         <StationSummary station={station} overview={stationOverview} now={now} asOf={overview.asOf} surge={observedSeries?.surge ?? null} surgeAsOf={observedSeries?.asOf ?? null} />
@@ -391,7 +403,7 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
             phone={boot.phone}
             webgl2={boot.webgl2}
             layers={layers}
-            waterFt={compare ? Math.max(ft, tide.effective) : tide.effective}
+            waterFt={compare ? Math.max(ft, tide.level) : tide.level}
             compare={compare}
             compareFt={Math.max(ft, tide.effective)}
             exaggeration={exaggeration}
@@ -443,7 +455,9 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
           onChange={(v) => {
             setFt(v);
             setTouched(true);
+            setSliderTip(true);
           }}
+          showTip={sliderTip}
           effective={tide.effective}
           tideAddFt={tide.add}
           kingEq={next ? futureTideEquivalent(next.aboveMhhw) : null}

@@ -48,3 +48,21 @@ export function plural(n: number, one: string, many = `${one}s`): string {
 export function milesAway(mi: number): string {
   return mi < 10 ? `${mi.toFixed(1)} mi` : `${Math.round(mi)} mi`;
 }
+
+/** Water level against today's high-tide line (MHHW), in words. Never prints a bare negative. */
+export function vsHighTide(aboveMhhw: number): string {
+  const r = Number(aboveMhhw.toFixed(1));
+  if (r === 0) return "at the high-tide line";
+  return `${Math.abs(r).toFixed(1)} ft ${r > 0 ? "over" : "below"} the high-tide line`;
+}
+
+/** How deep that water would be on a person standing at today's high-tide line. */
+export function onAPerson(aboveMhhw: number): string | null {
+  if (aboveMhhw < 0.1) return null;
+  if (aboveMhhw < 0.5) return "ankle deep";
+  if (aboveMhhw < 1.5) return "shin deep";
+  if (aboveMhhw < 2.2) return "knee deep";
+  if (aboveMhhw < 3.2) return "waist deep";
+  if (aboveMhhw < 4.6) return "chest deep";
+  return "over a person's head";
+}

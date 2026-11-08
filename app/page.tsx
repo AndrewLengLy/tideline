@@ -25,7 +25,7 @@ export default async function Home() {
     })),
   };
   const stations: MapStation[] = STATIONS.map(({ id, slug, name, lat, lng, facing, datums, thresholds }) => ({ id, slug, name, lat, lng, facing, datums, thresholds }));
-  const spots: MapSpot[] = SPOTS.map(({ slug, name, lat, lng, facing, nearestStationId }) => ({ slug, name, lat, lng, facing, nearestStationId }));
+  const spots: MapSpot[] = SPOTS.map(({ slug, name, lat, lng, facing, nearestStationId, fact, floodingReported, firstFloodFt }) => ({ slug, name, lat, lng, facing, nearestStationId, fact, floodingReported, firstFloodFt }));
   const places: MapPlace[] = PLACES.map(({ name, firstFloodFt }) => ({ name, firstFloodFt }));
   return <MapApp overview={slim} stations={stations} spots={spots} places={places} initialNow={overview.asOf} />;
 }

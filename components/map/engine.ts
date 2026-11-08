@@ -4,11 +4,12 @@ import maplibregl from "maplibre-gl";
 import type { Map as MLMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MapboxOverlay } from "@deck.gl/mapbox";
-import { ColumnLayer, TextLayer } from "@deck.gl/layers";
+import { ColumnLayer, IconLayer, TextLayer } from "@deck.gl/layers";
 import { COLOR, hexToRgb } from "@/lib/colors";
+import { vsHighTide } from "@/lib/format";
 import { SLR_MAX_ZOOM } from "@/lib/sources/slr";
 import { DEFAULT_LAYERS, type LayerSettings } from "./layers";
-import { registerProtocols } from "./protocols";
+import { registerProtocols, type SlrPaint } from "./protocols";
 import { baseStyle, BEFORE_BUILDINGS, BEFORE_FLOOD_LAYERS, BEFORE_WATER_LAYERS } from "./style";
 
 /** The poster stays up until imagery paints. After this long the canvas shows whatever has arrived. */
@@ -67,12 +68,29 @@ const WATER_RGB = hexToRgb(COLOR.water);
 const CORAL_RGB = hexToRgb(COLOR.coral);
 const INK_RGB = hexToRgb(COLOR.ink);
 
-/** The tallest column shows this much water above the base, so a low tide still has height. */
+/** The staff starts this far below MHHW, so a low tide still has height. */
 const PEDESTAL_FT = 7;
 const FRAME_FT = 10;
-const CROSSFADE_MS = 250;
-const WATER_OPACITY = 0.7;
+const PERSON_FT = 6;
+/** A 6 ft person who stands on the high-tide line beside each staff. Drawn as a mask and tinted ink. */
+const PERSON_ICON = {
+  url: `data:image/svg+xml;utf8,${encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='40' height='120' viewBox='0 0 40 120'><circle cx='20' cy='10.5' r='9.5'/><path d='M11 23h18a6 6 0 0 1 6 6v36h-6.5v54h-7.5V71h-2v48h-7.5V65H5V29a6 6 0 0 1 6-6z'/></svg>")}`,
+  width: 40,
+  height: 120,
+  anchorY: 120,
+  mask: true,
+};
+
+interface Tick {
+  g: GaugeDatum;
+  /** Feet above MHHW. */
+  ft: number;
+  kind: "foot" | "mhhw" | "minor";
+}
+const WATER_TWEEN_MS = 130;
+const WATER_OPACITY = 0.78;
 const MAX_LIVE_STEPS = 4;
+const WATER_LINE_ANCHOR = "water-line-anchor";
 
 const TERRAIN_SRC = "terrain-dem";
 const HILLSHADE_SRC = "hillshade-dem";
@@ -92,7 +110,10 @@ export class TideEngine {
   private ready = false;
   private revealed = false;
   private revealTimer?: ReturnType<typeof setTimeout>;
-  private waterFt = 0;
+  private waterTarget = 0;
+  private waterShown = 0;
+  private waterRaf = 0;
+  private confFt = 0;
   private liveSteps: number[] = [];
   private gauges: GaugeDatum[] = [];
   private callouts: CalloutItem[] = [];
@@ -155,7 +176,7 @@ export class TideEngine {
       this.ready = true;
       closeAttribution();
       this.opts.onStage?.("base");
-      this.setWater(this.waterFt, true);
+      this.setWater(this.waterTarget, true);
       this.renderFlatGauges();
       const idle = window.requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 200));
       idle(() => this.loadHeavyLayers());
@@ -270,66 +291,131 @@ export class TideEngine {
   }
 
   // Water -----------------------------------------------------------------
+  //
+  // Each whole foot has three raster layers: the fill, the band of land that goes under between
+  // that foot and the next, and the waterline. A level of 2.4 ft shows the 2 ft fill, the 2 to
+  // 3 ft band at 40 percent, and crossfades the 2 ft and 3 ft waterlines. Level changes ease
+  // over a short tween, so dragging the slider or playing the tide moves the shoreline smoothly.
 
-  private ensureStep(ft: number) {
+  private ensureLayer(kind: SlrPaint, ft: number) {
     const m = this.map;
-    const id = `slr-${ft}`;
+    const id = `slr-${kind}-${ft}`;
     if (!m.getSource(id)) {
       m.addSource(id, {
         type: "raster",
-        tiles: [`tideslr://${ft}/{z}/{y}/{x}`],
+        tiles: [`tideslr://${kind}/${ft}/{z}/{y}/{x}`],
         tileSize: 256,
         maxzoom: SLR_MAX_ZOOM,
         attribution: '<a href="https://coast.noaa.gov/slr/">NOAA Sea Level Rise Viewer</a>',
       });
     }
     if (!m.getLayer(id)) {
+      // Fills and bands sit under the waterline anchor, and every waterline sits above it.
+      const before = kind === "edge" ? (m.getLayer(BEFORE_FLOOD_LAYERS) ? BEFORE_FLOOD_LAYERS : undefined) : WATER_LINE_ANCHOR;
       m.addLayer(
         {
           id,
           type: "raster",
           source: id,
-          layout: { visibility: "visible" },
-          paint: {
-            "raster-opacity": 0,
-            "raster-opacity-transition": { duration: this.opts.reducedMotion ? 0 : CROSSFADE_MS, delay: 0 },
-            "raster-fade-duration": 0,
-            "raster-resampling": "linear",
-          },
+          paint: { "raster-opacity": 0, "raster-opacity-transition": { duration: 0, delay: 0 }, "raster-fade-duration": 0, "raster-resampling": kind === "edge" ? "nearest" : "linear" },
         },
-        m.getLayer(BEFORE_FLOOD_LAYERS) ? BEFORE_FLOOD_LAYERS : undefined,
+        before,
       );
     }
+  }
+
+  private ensureAnchor() {
+    const m = this.map;
+    if (m.getLayer(WATER_LINE_ANCHOR)) return;
+    m.addLayer({ id: WATER_LINE_ANCHOR, type: "background", layout: { visibility: "none" } }, m.getLayer(BEFORE_FLOOD_LAYERS) ? BEFORE_FLOOD_LAYERS : undefined);
+  }
+
+  private touchStep(ft: number) {
     this.liveSteps = [ft, ...this.liveSteps.filter((s) => s !== ft)];
   }
 
-  /** Crossfades to the NOAA layer for this foot value over 250 ms. Recent steps stay loaded so scrubbing back is instant. */
-  setWater(ft: number, force = false) {
-    const m = this.map;
-    const changed = ft !== this.waterFt;
-    this.waterFt = ft;
-    if (!this.ready) return;
+  /** Sets the water level in feet above today's MHHW. Fractions are fine. The map eases to it. */
+  setWater(level: number, force = false) {
+    const next = Math.max(0, Math.min(10, level));
+    const changed = next !== this.waterTarget;
+    this.waterTarget = next;
+    if (!this.ready) {
+      this.waterShown = next;
+      return;
+    }
     if (!changed && !force) return;
-    this.ensureStep(ft);
-    const target = (this.layers.slr.on ? this.layers.slr.opacity : 0) * WATER_OPACITY;
-    for (const s of this.liveSteps) m.setPaintProperty(`slr-${s}`, "raster-opacity", s === ft ? target : 0);
+    if (force || this.opts.reducedMotion) {
+      this.waterShown = next;
+      this.paintWater();
+      return;
+    }
+    if (!this.waterRaf) {
+      let last = performance.now();
+      const tick = (now: number) => {
+        const dt = Math.min(64, now - last);
+        last = now;
+        const gap = this.waterTarget - this.waterShown;
+        // Exponential ease toward the target, about 90 percent of the way in 300 ms.
+        const step = gap * (1 - Math.exp(-dt / WATER_TWEEN_MS));
+        this.waterShown = Math.abs(gap) < 0.01 ? this.waterTarget : this.waterShown + step;
+        this.paintWater();
+        this.waterRaf = this.waterShown === this.waterTarget || this.destroyed ? 0 : requestAnimationFrame(tick);
+      };
+      this.waterRaf = requestAnimationFrame(tick);
+    }
+  }
+
+  /** The level the map is showing right now, mid-tween included. */
+  get waterLevel() {
+    return this.waterShown;
+  }
+
+  private paintWater() {
+    const m = this.map;
+    const level = this.waterShown;
+    const lo = Math.floor(level);
+    const f = lo >= 10 ? 0 : level - lo;
+    const hi = Math.min(10, lo + 1);
+    this.ensureAnchor();
+    const fillOn = this.layers.slr.on ? this.layers.slr.opacity : 0;
+    const want = new Map<string, number>();
+    want.set(`slr-fill-${lo}`, fillOn * WATER_OPACITY);
+    want.set(`slr-edge-${lo}`, fillOn * (1 - f));
+    this.touchStep(lo);
+    if (f > 0.001) {
+      want.set(`slr-band-${lo}`, fillOn * WATER_OPACITY * f);
+      want.set(`slr-edge-${hi}`, fillOn * f);
+      this.touchStep(hi);
+    }
+    for (const id of want.keys()) {
+      const [, kind, ft] = id.split("-");
+      this.ensureLayer(kind as SlrPaint, Number(ft));
+    }
+    for (const id of m.getLayersOrder()) {
+      if (!id.startsWith("slr-")) continue;
+      const v = want.get(id) ?? 0;
+      if (m.getPaintProperty(id, "raster-opacity") !== v) m.setPaintProperty(id, "raster-opacity", v);
+    }
     // Forget the least recent steps so a long slider session does not hold every tile set.
     while (this.liveSteps.length > MAX_LIVE_STEPS) {
       const old = this.liveSteps.pop()!;
-      const id = `slr-${old}`;
-      setTimeout(() => {
-        if (this.destroyed || this.waterFt === old || this.liveSteps.includes(old)) return;
+      for (const kind of ["fill", "band", "edge"] as const) {
+        const id = `slr-${kind}-${old}`;
         if (m.getLayer(id)) m.removeLayer(id);
         if (m.getSource(id)) m.removeSource(id);
-      }, CROSSFADE_MS + 60);
+      }
     }
-    this.setConfidenceLayer();
+    const conf = Math.round(level);
+    if (conf !== this.confFt) {
+      this.confFt = conf;
+      this.setConfidenceLayer();
+    }
   }
 
   private setConfidenceLayer() {
     const m = this.map;
     if (!this.heavyLoaded) return;
-    const ft = this.waterFt;
+    const ft = this.confFt;
     for (const layer of m.getLayersOrder().filter((l) => l.startsWith("conf-") && l !== `conf-${ft}`)) {
       m.removeLayer(layer);
       m.removeSource(layer);
@@ -369,8 +455,7 @@ export class TideEngine {
       m.setPaintProperty("building", "fill-extrusion-opacity", next.buildings.opacity);
     }
     this.syncTerrain();
-    const target = (next.slr.on ? next.slr.opacity : 0) * WATER_OPACITY;
-    if (m.getLayer(`slr-${this.waterFt}`)) m.setPaintProperty(`slr-${this.waterFt}`, "raster-opacity", target);
+    this.paintWater();
     this.setConfidenceLayer();
     this.renderDeck();
     this.renderFlatGauges();
@@ -443,7 +528,7 @@ export class TideEngine {
     const features = (show ? this.gauges : []).map((d) => ({
       type: "Feature" as const,
       geometry: { type: "Point" as const, coordinates: [d.lng, d.lat] },
-      properties: { over: d.minor !== null && d.level > d.minor, label: `${d.name} ${d.level >= 0 ? "+" : "-"}${Math.abs(d.level).toFixed(1)} ft` },
+      properties: { over: d.minor !== null && d.level > d.minor, label: `${d.name}\n${vsHighTide(d.level)}` },
     }));
     const data = { type: "FeatureCollection" as const, features };
     const source = m.getSource("gauges-flat") as maplibregl.GeoJSONSource | undefined;
@@ -480,16 +565,23 @@ export class TideEngine {
     const zoom = this.map.getZoom();
     const lat = this.map.getCenter().lat;
     const mpp = metersPerPixel(lat, zoom);
-    // Tide range is 2 m and the view spans 30 km, so columns draw at a screen-based scale and print their true height.
+    // Tide range is 2 m and the view spans 30 km, so staffs draw at a screen-based scale and print their true height.
     const pxPerFt = (this.opts.phone ? 8.5 : 12) * (this.threeD ? this.exaggeration / 3 : 1);
     const scale = pxPerFt * mpp;
     const radius = (this.opts.phone ? 5.5 : 7) * mpp;
     const data = on && this.threeD ? this.gauges : [];
 
     const base = (d: GaugeDatum) => this.groundZ(d.lng, d.lat);
+    const mhhwZ = (d: GaugeDatum) => base(d) + PEDESTAL_FT * scale;
+    // The person stands to the screen right of the staff, whatever the bearing.
+    const rad = (this.map.getBearing() * Math.PI) / 180;
+    const sideM = radius * 4.2;
+    const beside = (d: GaugeDatum): [number, number] => [
+      d.lng + (sideM * Math.cos(rad)) / (111320 * Math.cos((d.lat * Math.PI) / 180)),
+      d.lat - (sideM * Math.sin(rad)) / 110540,
+    ];
     // deck.gl scales billboard text with camera distance. Dividing by the local map scale keeps labels one size.
     const labelScale = (d: GaugeDatum) => {
-      const rad = (this.map.getBearing() * Math.PI) / 180;
       const dMeters = 200 * mpp;
       const dLng = (dMeters * Math.cos(rad)) / (111320 * Math.cos((d.lat * Math.PI) / 180));
       const dLat = (-dMeters * Math.sin(rad)) / 110540;
@@ -498,24 +590,22 @@ export class TideEngine {
       const k = Math.hypot(b.x - a.x, b.y - a.y) / 200;
       return k > 0.02 ? Math.min(4, 1 / k) : 1;
     };
-    const waterH = (d: GaugeDatum) => Math.max(0.15, d.level + PEDESTAL_FT) * scale;
+    const waterH = (d: GaugeDatum) => Math.max(0.15, Math.min(FRAME_FT, d.level + PEDESTAL_FT)) * scale;
     const over = (d: GaugeDatum) => d.minor !== null && d.level > d.minor;
+    const waterRgb = (d: GaugeDatum) => (over(d) ? CORAL_RGB : WATER_RGB);
     const trigger = data.map((d) => d.level.toFixed(2)).join();
+    const viewKey = [scale, this.exaggeration, this.threeD, this.map.getBearing().toFixed(1)];
+
+    const ticks: Tick[] = [];
+    for (const g of data) {
+      for (let f = 1 - PEDESTAL_FT; f <= FRAME_FT - PEDESTAL_FT; f++) if (f !== 0) ticks.push({ g, ft: f, kind: "foot" });
+      ticks.push({ g, ft: 0, kind: "mhhw" });
+      if (g.minor !== null && g.minor > 0 && g.minor < FRAME_FT - PEDESTAL_FT) ticks.push({ g, ft: g.minor, kind: "minor" });
+    }
+    const flooded = data.filter((d) => d.level > 0.02);
 
     this.overlay.setProps({
       layers: [
-        new ColumnLayer<GaugeDatum>({
-          id: "gauge-mhhw",
-          data,
-          diskResolution: 20,
-          radius: radius * 1.5,
-          extruded: true,
-          getPosition: (d) => [d.lng, d.lat, base(d) + PEDESTAL_FT * scale],
-          getElevation: () => 0.1 * scale,
-          getFillColor: [INK_RGB[0], INK_RGB[1], INK_RGB[2], alpha],
-          material: false,
-          updateTriggers: { getElevation: [scale], getPosition: [scale, this.exaggeration, this.threeD] },
-        }),
         new ColumnLayer<GaugeDatum>({
           id: "gauge-water",
           data,
@@ -530,24 +620,76 @@ export class TideEngine {
           },
           getPosition: (d) => [d.lng, d.lat, base(d)],
           getElevation: waterH,
-          getFillColor: (d) => (over(d) ? [CORAL_RGB[0], CORAL_RGB[1], CORAL_RGB[2], alpha] : [WATER_RGB[0], WATER_RGB[1], WATER_RGB[2], alpha]),
+          getFillColor: (d) => [...waterRgb(d), alpha],
           material: { ambient: 0.75, diffuse: 0.45, shininess: 12, specularColor: [40, 60, 70] },
-          updateTriggers: { getElevation: [trigger, scale], getFillColor: [trigger, alpha], getPosition: [this.exaggeration, this.threeD] },
+          updateTriggers: { getElevation: [trigger, scale], getFillColor: [trigger, alpha], getPosition: viewKey },
         }),
+        ...(["foot", "mhhw", "minor"] as const).map(
+          (kind) =>
+            new ColumnLayer<Tick>({
+              id: `gauge-ticks-${kind}`,
+              data: ticks.filter((t) => t.kind === kind),
+              diskResolution: 20,
+              radius: (kind === "mhhw" ? 1.9 : kind === "minor" ? 1.65 : 1.35) * radius,
+              extruded: true,
+              material: false,
+              getPosition: (t) => [t.g.lng, t.g.lat, base(t.g) + (t.ft + PEDESTAL_FT) * scale],
+              getElevation: () => (kind === "foot" ? 0.07 : 0.14) * scale,
+              getFillColor: kind === "minor" ? [CORAL_RGB[0], CORAL_RGB[1], CORAL_RGB[2], alpha] : [INK_RGB[0], INK_RGB[1], INK_RGB[2], kind === "mhhw" ? alpha : Math.round(alpha * 0.45)],
+              updateTriggers: { getPosition: viewKey, getElevation: [scale] },
+            }),
+        ),
         new ColumnLayer<GaugeDatum>({
-          id: "gauge-frame",
+          id: "gauge-board",
           data,
           diskResolution: 20,
-          radius: radius * 1.35,
+          radius: radius * 1.3,
           extruded: true,
           getPosition: (d) => [d.lng, d.lat, base(d)],
           getElevation: () => FRAME_FT * scale,
-          getFillColor: [INK_RGB[0], INK_RGB[1], INK_RGB[2], Math.round(alpha * 0.1)],
+          getFillColor: [248, 250, 251, Math.round(alpha * 0.32)],
           material: false,
           pickable: false,
-          // The shell is see-through, so it must not hide the water column inside it.
+          // The board is see-through, so it must not hide the water column inside it.
           parameters: { depthWriteEnabled: false },
-          updateTriggers: { getElevation: [scale], getPosition: [this.exaggeration, this.threeD] },
+          updateTriggers: { getElevation: [scale], getPosition: viewKey },
+        }),
+        new ColumnLayer<GaugeDatum>({
+          id: "gauge-ledge",
+          data,
+          diskResolution: 20,
+          radius: radius * 1.15,
+          extruded: true,
+          material: false,
+          getPosition: (d) => [...beside(d), mhhwZ(d) - 0.14 * scale],
+          getElevation: () => 0.14 * scale,
+          getFillColor: [INK_RGB[0], INK_RGB[1], INK_RGB[2], alpha],
+          updateTriggers: { getPosition: viewKey, getElevation: [scale] },
+        }),
+        new IconLayer<GaugeDatum>({
+          id: "gauge-person",
+          data,
+          billboard: true,
+          sizeUnits: "meters",
+          getIcon: () => PERSON_ICON,
+          getPosition: (d) => [...beside(d), mhhwZ(d)],
+          getSize: () => PERSON_FT * scale,
+          getColor: [INK_RGB[0], INK_RGB[1], INK_RGB[2], Math.round(alpha * 0.9)],
+          updateTriggers: { getPosition: viewKey, getSize: [scale] },
+        }),
+        // Water over the high-tide line rises around the person, so its depth reads on a body.
+        new ColumnLayer<GaugeDatum>({
+          id: "gauge-person-water",
+          data: flooded,
+          diskResolution: 24,
+          radius: radius * 1.05,
+          extruded: true,
+          material: false,
+          getPosition: (d) => [...beside(d), mhhwZ(d)],
+          getElevation: (d) => Math.min(FRAME_FT - PEDESTAL_FT, d.level) * scale,
+          getFillColor: (d) => [...waterRgb(d), Math.round(alpha * 0.55)],
+          parameters: { depthWriteEnabled: false },
+          updateTriggers: { getPosition: viewKey, getElevation: [trigger, scale], getFillColor: [trigger, alpha] },
         }),
         new TextLayer<GaugeDatum>({
           id: "gauge-label",
@@ -555,10 +697,11 @@ export class TideEngine {
           characterSet: "auto",
           fontFamily: this.monoFamily,
           fontWeight: 500,
-          getPosition: (d) => [d.lng, d.lat, base(d) + Math.max(FRAME_FT, d.level + PEDESTAL_FT) * scale],
-          getText: (d) => `${d.name} ${d.level >= 0 ? "+" : "-"}${Math.abs(d.level).toFixed(1)} ft`,
+          getPosition: (d) => [d.lng, d.lat, base(d) + FRAME_FT * scale],
+          getText: (d) => `${d.name}\n${vsHighTide(d.level)}${over(d) ? ", flooding" : ""}`,
           fontSettings: { sdf: true, fontSize: 64, buffer: 6, radius: 12 },
-          getSize: (d) => (this.opts.phone ? 11 : 12) * labelScale(d),
+          lineHeight: 1.25,
+          getSize: (d) => (this.opts.phone ? 10.5 : 11.5) * labelScale(d),
           getColor: (d) => (over(d) ? [169, 63, 37, 255] : [INK_RGB[0], INK_RGB[1], INK_RGB[2], 255]),
           getTextAnchor: "middle",
           getAlignmentBaseline: "bottom",
@@ -568,7 +711,7 @@ export class TideEngine {
           getBorderColor: (d) => (d.selected ? [INK_RGB[0], INK_RGB[1], INK_RGB[2], 255] : [207, 219, 225, 255]),
           getBorderWidth: 1,
           backgroundPadding: [5, 2, 5, 2],
-          updateTriggers: { getSize: [this.map.getZoom(), this.map.getPitch(), this.map.getBearing(), lat], getPixelOffset: [this.map.getZoom(), this.map.getPitch()], getText: [trigger], getColor: [trigger], getBorderColor: [data.map((d) => d.selected).join()], getPosition: [trigger, scale, this.exaggeration, this.threeD] },
+          updateTriggers: { getSize: [this.map.getZoom(), this.map.getPitch(), this.map.getBearing(), lat], getPixelOffset: [this.map.getZoom(), this.map.getPitch()], getText: [trigger], getColor: [trigger], getBorderColor: [data.map((d) => d.selected).join()], getPosition: viewKey },
         }),
       ],
     });
@@ -668,6 +811,7 @@ export class TideEngine {
   destroy() {
     this.destroyed = true;
     clearTimeout(this.revealTimer);
+    cancelAnimationFrame(this.waterRaf);
     cancelAnimationFrame(this.calloutRaf);
     for (const { marker } of this.markers.values()) marker.remove();
     this.markers.clear();

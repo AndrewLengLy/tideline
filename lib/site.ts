@@ -15,6 +15,7 @@ export const LINKS = {
   slrViewer: "https://coast.noaa.gov/slr/",
   slrServices: "https://coast.noaa.gov/arcgis/rest/services/dc_slr",
   kingTides: "https://www.coastal.ca.gov/kingtides/",
+  opcGuidance: "https://opc.ca.gov/california-sea-level-rise-guidance/",
   kingTidesParticipate: "https://www.coastal.ca.gov/kingtides/participate.html",
   kingTidesUpload: "https://survey123.arcgis.com/share/046c76a1ffa14902bb8ab2d6bb874456",
   usgsImagery: "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer",

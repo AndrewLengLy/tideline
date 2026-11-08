@@ -111,11 +111,33 @@ export function LayerRows({ layers, onChange, followTide, onFollowTide }: Props)
       </ul>
       <label className="mt-2 flex min-h-11 cursor-pointer items-start gap-2 border-t border-line pt-2 lg:min-h-0">
         <input type="checkbox" checked={followTide} onChange={(e) => onFollowTide(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0d2230]" />
-        <span>Add the scrubber tide to the water layer. Water above MHHW at the selected gauge raises the layer to the nearest foot.</span>
+        <span>Add the scrubber tide to the water layer. Water over the high-tide line at the selected gauge raises the layer, and the shoreline moves with it.</span>
       </label>
       <div className="mt-3 space-y-1.5 border-t border-line pt-2 text-[12.5px] leading-snug">
         <p>
-          Water layer: NOAA screening-level maps from a modified bathtub method that accounts for tidal variation and hydrologic connectivity. Blue steps darken by foot, and NOAA depth darkens them further.
+          Water layer: NOAA screening-level maps from a modified bathtub method that accounts for tidal variation and hydrologic connectivity. The high-tide line means MHHW, the average height of the higher high tide each day.
+        </p>
+        <p className="flex items-start gap-2">
+          <svg width="16" height="16" viewBox="0 0 16 16" className="mt-0.5 shrink-0" aria-hidden>
+            <rect width="16" height="16" fill="#8a9a8f" />
+            <path d="M0 0h9v16H0z" fill="#46aadb" />
+            <path d="M9.5 0v16" stroke="#0d2230" strokeWidth="1.2" />
+            <path d="M8 0v16" stroke="#f2fbff" strokeWidth="2" />
+          </svg>
+          <span>Bright line: the waterline at the current level, edged in dark on the dry side. At 0 ft it is today&apos;s high-tide line.</span>
+        </p>
+        <p className="flex items-start gap-2">
+          <svg width="16" height="16" viewBox="0 0 16 16" className="mt-0.5 shrink-0" aria-hidden>
+            <rect width="16" height="16" fill="#46aadb" />
+            <path d="M5 0v16" stroke="#f2fbff" strokeWidth="1.4" strokeDasharray="3 3" />
+          </svg>
+          <span>Blue: land that goes under only with the added water. Darker blue is deeper. The dashed line inside it is today&apos;s high-tide line.</span>
+        </p>
+        <p className="flex items-start gap-2">
+          <svg width="16" height="16" viewBox="0 0 16 16" className="mt-0.5 shrink-0" aria-hidden>
+            <rect width="16" height="16" fill="#c4dfec" opacity="0.6" />
+          </svg>
+          <span>Pale tint: marsh and ponds that are already wet at today&apos;s high tide.</span>
         </p>
         <p className="flex items-start gap-2">
           <svg width="16" height="16" viewBox="0 0 16 16" className="mt-0.5 shrink-0" aria-hidden>
@@ -135,11 +157,13 @@ export function LayerRows({ layers, onChange, followTide, onFollowTide }: Props)
         </p>
         <p className="flex items-start gap-2">
           <svg width="16" height="16" viewBox="0 0 16 16" className="mt-0.5 shrink-0" aria-hidden>
-            <rect x="2" y="5" width="4" height="11" fill="#0077b6" />
-            <rect x="10" y="1" width="4" height="15" fill="#e76f51" />
-            <path d="M0 5h16" stroke="#0d2230" />
+            <rect x="2" y="4" width="4" height="12" fill="#0077b6" />
+            <path d="M0 8h8M1 11h6M1 14h6" stroke="#0d2230" strokeWidth="0.8" />
+            <path d="M0 6h16" stroke="#0d2230" strokeWidth="1.6" />
+            <circle cx="12" cy="1.6" r="1.3" fill="#0d2230" />
+            <path d="M10.6 3.4h2.8v4.4h-.8V6h-.4v1.8h-1.6z" fill="#0d2230" />
           </svg>
-          <span>Columns: water level above MHHW at the scrubber time, plus the slider. The dark ring is MHHW. Coral means over the minor threshold. Heights are drawn for legibility, and the label prints the true value.</span>
+          <span>Staffs: water level at each gauge at the scrubber time, plus the slider, with a tick every foot. The thick ring is the high-tide line and the coral ring is the minor flood threshold. A 6 ft person stands on the high-tide line, so water over it shows as depth on a body. Heights are drawn for legibility, and the label prints the true value.</span>
         </p>
       </div>
     </div>

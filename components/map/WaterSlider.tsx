@@ -2,6 +2,7 @@
 
 import { signedFt } from "@/lib/format";
 import { STEP_COLORS, stepColor } from "@/lib/colors";
+import { LINKS } from "@/lib/site";
 import type { MapPlace } from "@/lib/types";
 
 interface Props {
@@ -16,12 +17,24 @@ interface Props {
   compare: boolean;
   onCompare: (on: boolean) => void;
   canCompare: boolean;
+  /** True once the visitor has moved the slider. The tip for the current foot shows from then on. */
+  showTip: boolean;
+}
+
+/** One line per range, from the State of California Sea Level Rise Guidance, 2024 (statewide figures). */
+export function sliderTip(ft: number, kingEq: number | null): string {
+  const king = kingEq !== null && ft > 0 && Math.round(kingEq) === ft ? "The next king tide previews this level. " : "";
+  if (ft === 0) return "0 ft is today's high-tide line, the bright edge on the map. An ordinary high tide stops there.";
+  if (ft === 1) return `${king}The state expects about 0.8 ft of rise by 2050.`;
+  if (ft <= 3) return `${king}The state's likely range for 2100 is 1.6 to 3.1 ft.`;
+  if (ft <= 6) return `${king}This is past the likely 2100 range. The state's high scenario reaches 6.6 ft by 2100.`;
+  return `${king}This is past every 2100 scenario. The state's range for 2150 runs as high as 11.9 ft.`;
 }
 
 const TICKS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
 
 /** The signature control. A native range input, so arrow keys and screen readers work without extra code. */
-export function WaterSlider({ value, onChange, effective, tideAddFt, kingEq, kingLabel, placesByFt, compare, onCompare, canCompare }: Props) {
+export function WaterSlider({ value, onChange, effective, tideAddFt, kingEq, kingLabel, placesByFt, compare, onCompare, canCompare, showTip }: Props) {
   const here = placesByFt.get(effective) ?? [];
   return (
     <div className="flex items-start gap-2">
@@ -91,22 +104,32 @@ export function WaterSlider({ value, onChange, effective, tideAddFt, kingEq, kin
           </button>
         ) : null}
       </div>
-      {effective > 0 || tideAddFt > 0 ? (
-        <div className="panel hidden max-w-[210px] px-2.5 py-1.5 text-[12.5px] leading-snug md:block" data-testid="water-places">
-          <p className="num font-medium">{effective} ft on the map</p>
-          {tideAddFt > 0 ? (
-            <p className="text-muted">
-              {value} ft slider plus {signedFt(tideAddFt)} tide
+      {showTip || effective > 0 || tideAddFt > 0 ? (
+        <div className={`panel max-w-[210px] px-2.5 py-1.5 text-[12.5px] leading-snug ${showTip ? "block" : "hidden md:block"}`} data-testid="water-places">
+          {showTip ? (
+            <p data-testid="slider-tip">
+              {sliderTip(value, kingEq)}{" "}
+              <a className="text-link underline" href={LINKS.opcGuidance}>
+                Source
+              </a>
             </p>
           ) : null}
-          {here.length ? (
-            <p className="mt-1">
-              First under at this step: {here.slice(0, 3).map((p) => p.name).join(", ")}
-              {here.length > 3 ? `, and ${here.length - 3} more` : ""}.
-            </p>
-          ) : (
-            <p className="mt-1 text-muted">No listed place first floods at this step.</p>
-          )}
+          <div className={`hidden md:block ${showTip ? "mt-1.5 border-t border-line pt-1.5" : ""}`}>
+            <p className="num font-medium">{effective} ft on the map</p>
+            {tideAddFt > 0 ? (
+              <p className="text-muted">
+                {value} ft slider plus {signedFt(tideAddFt)} tide
+              </p>
+            ) : null}
+            {here.length ? (
+              <p className="mt-1">
+                First under at this step: {here.slice(0, 3).map((p) => p.name).join(", ")}
+                {here.length > 3 ? `, and ${here.length - 3} more` : ""}.
+              </p>
+            ) : effective > 0 ? (
+              <p className="mt-1 text-muted">No listed place first floods at this step.</p>
+            ) : null}
+          </div>
         </div>
       ) : null}
     </div>

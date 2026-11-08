@@ -1,8 +1,9 @@
 "use client";
 
-export type TabId = "layers" | "station" | "notes";
+export type TabId = "visit" | "layers" | "station" | "notes";
 
 const TABS: { id: TabId; label: string }[] = [
+  { id: "visit", label: "Go see it" },
   { id: "layers", label: "Layers" },
   { id: "station", label: "Station" },
   { id: "notes", label: "Notes" },
