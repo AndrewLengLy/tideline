@@ -217,7 +217,7 @@ export class TideEngine {
     this.map.on("error", (e) => {
       if ((e as { sourceId?: string }).sourceId !== "imagery") return;
       this.imageryFails += 1;
-      if (this.imageryFails >= IMAGERY_FAIL_LIMIT && this.map.getLayer("imagery")) {
+      if (this.imageryFails === IMAGERY_FAIL_LIMIT && this.map.getLayer("imagery")) {
         this.map.setLayoutProperty("imagery", "visibility", "none");
         console.warn("Tideline: imagery tiles keep failing, so the imagery layer is hidden.");
       }
