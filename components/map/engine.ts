@@ -62,6 +62,8 @@ export interface EngineOptions {
   onLive?: (v: ViewState) => void;
   onStage?: (stage: "base" | "full") => void;
   onPickGauge?: (id: string) => void;
+  /** A tap on open map, away from any gauge. */
+  onPickPoint?: (p: { lng: number; lat: number }) => void;
 }
 
 const WATER_RGB = hexToRgb(COLOR.water);
@@ -198,6 +200,18 @@ export class TideEngine {
       idle(() => this.loadHeavyLayers());
     });
     this.map.on("moveend", () => this.opts.onView?.(this.getView()));
+    this.map.on("click", (e) => {
+      // A tap on a gauge staff picks the gauge. Anything else checks that place.
+      const hit = this.overlay?.pickObject({ x: e.point.x, y: e.point.y, radius: 6 });
+      if (hit?.layer?.id === "gauge-water") return;
+      const flat = this.map.getLayer("gauges-flat-dot") ? this.map.queryRenderedFeatures(e.point, { layers: ["gauges-flat-dot"] }) : [];
+      const flatId = flat[0]?.properties?.id;
+      if (typeof flatId === "string") {
+        this.opts.onPickGauge?.(flatId);
+        return;
+      }
+      this.opts.onPickPoint?.({ lng: e.lngLat.lng, lat: e.lngLat.lat });
+    });
     this.map.on("move", () => {
       this.opts.onLive?.(this.getView());
       this.scheduleCallouts();
@@ -544,7 +558,7 @@ export class TideEngine {
     const features = (show ? this.gauges : []).map((d) => ({
       type: "Feature" as const,
       geometry: { type: "Point" as const, coordinates: [d.lng, d.lat] },
-      properties: { over: d.minor !== null && d.level > d.minor, label: `${d.name}\n${vsHighTide(d.level)}` },
+      properties: { id: d.id, over: d.minor !== null && d.level > d.minor, label: d.selected ? `${d.name}\n${vsHighTide(d.level)}` : d.name },
     }));
     const data = { type: "FeatureCollection" as const, features };
     const source = m.getSource("gauges-flat") as maplibregl.GeoJSONSource | undefined;
@@ -716,7 +730,7 @@ export class TideEngine {
           fontFamily: this.monoFamily,
           fontWeight: 500,
           getPosition: (d) => [d.lng, d.lat, base(d) + Math.max(FRAME_FT, PEDESTAL_FT + PERSON_FT + 0.5) * scale],
-          getText: (d) => `${d.name}\n${vsHighTide(d.level)}${over(d) ? ", flooding" : ""}`,
+          getText: (d) => (d.selected ? `${d.name}\n${vsHighTide(d.level)}${over(d) ? ", flooding" : ""}` : d.name),
           fontSettings: { sdf: true, fontSize: 64, buffer: 6, radius: 12 },
           lineHeight: 1.25,
           getSize: (d) => (this.opts.phone ? 10.5 : 11.5) * labelScale(d),
@@ -729,10 +743,30 @@ export class TideEngine {
           getBorderColor: (d) => (d.selected ? [INK_RGB[0], INK_RGB[1], INK_RGB[2], 255] : [207, 219, 225, 255]),
           getBorderWidth: 1,
           backgroundPadding: [5, 2, 5, 2],
-          updateTriggers: { getSize: [this.map.getZoom(), this.map.getPitch(), this.map.getBearing(), lat], getPixelOffset: [this.map.getZoom(), this.map.getPitch()], getText: [trigger], getColor: [trigger], getBorderColor: [data.map((d) => d.selected).join()], getPosition: viewKey },
+          updateTriggers: { getSize: [this.map.getZoom(), this.map.getPitch(), this.map.getBearing(), lat], getPixelOffset: [this.map.getZoom(), this.map.getPitch()], getText: [trigger, data.map((d) => d.selected).join()], getColor: [trigger], getBorderColor: [data.map((d) => d.selected).join()], getPosition: viewKey },
         }),
       ],
     });
+  }
+
+  // Pin -------------------------------------------------------------------
+
+  private pin: Marker | null = null;
+
+  /** Drops a pin at a checked place, or clears it. */
+  setPin(p: { lng: number; lat: number } | null) {
+    if (!p) {
+      this.pin?.remove();
+      this.pin = null;
+      return;
+    }
+    if (!this.pin) {
+      const el = document.createElement("div");
+      el.className = "place-pin";
+      el.setAttribute("aria-hidden", "true");
+      this.pin = new maplibregl.Marker({ element: el, anchor: "bottom" });
+    }
+    this.pin.setLngLat([p.lng, p.lat]).addTo(this.map);
   }
 
   // Callouts --------------------------------------------------------------
@@ -828,6 +862,7 @@ export class TideEngine {
 
   destroy() {
     this.destroyed = true;
+    this.pin?.remove();
     clearTimeout(this.revealTimer);
     cancelAnimationFrame(this.waterRaf);
     cancelAnimationFrame(this.calloutRaf);

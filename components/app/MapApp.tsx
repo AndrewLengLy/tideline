@@ -20,7 +20,7 @@ import { WaterSlider } from "../map/WaterSlider";
 import { MiniCharts } from "./BottomPanel";
 import { BottomSheet, PEEK_HEIGHT, type Snap } from "./BottomSheet";
 import { LayerRows } from "./LayerRows";
-import { NotesTab } from "./NotesTab";
+import { PlaceCheck, type Place } from "./PlaceCheck";
 import { Sidebar, Tabs, type TabId } from "./Sidebar";
 import { StationSummary } from "./StationSummary";
 import { DateRange, TopBar } from "./TopBar";
@@ -58,6 +58,7 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
   const [layers, setLayers] = useState<LayerSettings>(DEFAULT_LAYERS);
   const [followTide, setFollowTide] = useState(true);
   const [exaggeration, setExaggeration] = useState(3);
+  const [place, setPlace] = useState<Place | null>(null);
   const [is3D, setIs3D] = useState(true);
   const [compare, setCompare] = useState(false);
   const [from, setFrom] = useState(() => pacificDay(initialNow - 3 * DAY));
@@ -128,6 +129,10 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
     playhead.set(Math.max(0, (t - dayStart(fromDay)) / STEP_MS));
     if (u.station && stationById(u.station)) setStationId(u.station);
     if (u.ft !== null) setFt(u.ft);
+    if (u.pin) {
+      setPlace({ ...u.pin, label: null });
+      setTab("place");
+    }
     if (phone) setExaggeration(2);
     if (u.compare) setCompare(true);
     if (u.t || u.ft !== null || u.view.lat !== undefined) setTouched(true);
@@ -190,8 +195,8 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
 
   // Address bar. Stays clean until the visitor changes something, then every view is shareable.
   const writeUrl = useCallback(() => {
-    writeUrlState({ t: dayStart(from) + Math.round(playhead.getPos()) * STEP_MS, view: viewRef.current, station: stationId, ft, compare });
-  }, [from, playhead, stationId, ft, compare]);
+    writeUrlState({ t: dayStart(from) + Math.round(playhead.getPos()) * STEP_MS, view: viewRef.current, station: stationId, ft, compare, pin: place });
+  }, [from, playhead, stationId, ft, compare, place]);
   const touchedRef = useRef(touched);
   const writeUrlRef = useRef(writeUrl);
   useEffect(() => {
@@ -227,12 +232,13 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
     if (next) {
       items.push({ id: "king", lng: station.lng, lat: station.lat, title: `Next king tide, ${station.name}`, detail: short(next.t, next.height), priority: 0, kind: "king", href: `/stations/${station.slug}` });
     }
+    // Spot cards say how each spot floods. The date would repeat the king tide card.
     spots.forEach((s, i) => {
-      const o = overview.stations.find((x) => x.stationId === s.nearestStationId)?.next;
-      items.push({ id: s.slug, lng: s.lng, lat: s.lat, title: s.name, detail: o ? short(o.t, o.height) : "Shoreline spot", priority: i + 1, kind: "spot", href: `/spots/${s.slug}` });
+      const detail = s.floodingReported ? "Water reported at king tides" : s.firstFloodFt !== null ? `Goes under at ${s.firstFloodFt} ft of rise` : "Shoreline spot";
+      items.push({ id: s.slug, lng: s.lng, lat: s.lat, title: s.name, detail, priority: i + 1, kind: "spot", href: `/spots/${s.slug}` });
     });
     return items;
-  }, [next, station, spots, overview]);
+  }, [next, station, spots]);
 
   const events = useMemo<ScrubberEvent[]>(() => {
     const t0 = frames.t0;
@@ -378,9 +384,30 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
     />
   );
 
+  // Check a place: a map tap or a search result pins the spot and opens its answer.
+  const pickPlace = useCallback(
+    (p: Place, fly = true) => {
+      setPlace(p);
+      setTab("place");
+      setTouched(true);
+      setSnap((s) => (s === 0 ? 1 : s));
+      if (fly) setFly((f) => ({ lng: p.lng, lat: p.lat, facing: viewRef.current?.bearing ?? 0, zoom: 14.5, nonce: (f?.nonce ?? 0) + 1 }));
+    },
+    [],
+  );
+  const showFtAtPlace = useCallback(
+    (v: number) => {
+      setFt(v);
+      setTouched(true);
+      setSliderTip(true);
+      if (place) setFly((f) => ({ lng: place.lng, lat: place.lat, facing: viewRef.current?.bearing ?? 0, zoom: 15, nonce: (f?.nonce ?? 0) + 1 }));
+    },
+    [place],
+  );
+
   const panelBody = (t: TabId, mobile: boolean) => {
     if (t === "layers") return <LayerRows layers={layers} onChange={onLayer} followTide={followTide} onFollowTide={setFollowTide} />;
-    if (t === "notes") return <NotesTab />;
+    if (t === "place") return <PlaceCheck place={place} onPlace={pickPlace} onClear={() => setPlace(null)} onShowFt={showFtAtPlace} station={station} next={next} />;
     if (t === "visit") return <GoSeeIt station={station} next={next} spots={spots} onSpot={onSpot} onShowTide={goTo} />;
     return (
       <div className="space-y-4">
@@ -407,7 +434,6 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
             compare={compare}
             compareFt={Math.max(ft, tide.effective)}
             exaggeration={exaggeration}
-            onExaggeration={setExaggeration}
             is3D={is3D}
             on3D={setIs3D}
             playhead={playhead}
@@ -420,6 +446,8 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
             controlsClassName="pointer-events-none absolute right-2 top-[106px] z-10 lg:top-auto lg:bottom-[calc(214px+var(--footer-h)+34px)] lg:right-[calc(340px+10px)]"
             onView={onView}
             onPickGauge={onStation}
+            onPickPoint={(p) => pickPlace({ ...p, label: null }, false)}
+            pin={place}
             onStage={() => undefined}
           />
         ) : null}

@@ -336,3 +336,12 @@ a {
     scroll-behavior: auto !important;
   }
 }
+
+/* The pin for a checked place: a coral drop with an ink ring, pointing at the spot. */
+.place-pin {
+  width: 22px;
+  height: 30px;
+  background: no-repeat center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 30'%3E%3Cpath d='M11 29C11 29 1.5 17.6 1.5 10.8a9.5 9.5 0 0 1 19 0C20.5 17.6 11 29 11 29z' fill='%23e76f51' stroke='%230d2230' stroke-width='1.5'/%3E%3Ccircle cx='11' cy='10.8' r='3.6' fill='%23f8fafb'/%3E%3C/svg%3E");
+  pointer-events: none;
+  filter: drop-shadow(0 1px 2px rgb(13 34 48 / 0.35));
+}

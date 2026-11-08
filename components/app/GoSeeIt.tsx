@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { fmtLongDay, fmtTime, ft, onAPerson, vsHighTide } from "@/lib/format";
+import { fmtLongDay, fmtMonthDay, fmtTime, ft, onAPerson, vsHighTide } from "@/lib/format";
+import { OFFICIAL_DATES } from "@/lib/official-dates";
+import { dayStart } from "@/lib/time";
 import { LINKS } from "@/lib/site";
 import { lightAt, spotsToWatch, VIEW_WINDOW_MS } from "@/lib/metrics/visit";
 import type { KingTide, MapSpot, MapStation } from "@/lib/types";
@@ -109,6 +111,27 @@ export function GoSeeIt({ station, next, spots, onSpot, onShowTide }: Props) {
             , which uses them to document future shorelines.
           </li>
         </ul>
+      </div>
+
+      <div>
+        <h3 className="text-[14px]">Official king tide dates</h3>
+        {OFFICIAL_DATES.length ? (
+          <ul className="num mt-1 text-[13px]">
+            {OFFICIAL_DATES.map((r) => (
+              <li key={r.start}>
+                {fmtMonthDay(dayStart(r.start) + 43_200_000)} to {fmtMonthDay(dayStart(r.end) + 43_200_000)}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-0.5 text-[13px]">
+            The California Coastal Commission confirms statewide dates each fall on the{" "}
+            <a className={LINK} href={LINKS.kingTides}>
+              King Tides Project
+            </a>{" "}
+            site. Tideline finds its own highest tides from NOAA predictions.
+          </p>
+        )}
       </div>
     </div>
   );

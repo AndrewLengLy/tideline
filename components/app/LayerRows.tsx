@@ -67,6 +67,9 @@ const ROWS: { id: LayerId; name: string; source: string; opacityName: string }[]
   { id: "spots", name: "Shoreline spots", source: "Tideline, from public sources", opacityName: "shoreline spots" },
 ];
 
+/** Layers most visitors never touch fold under More layers. */
+const MORE = new Set<LayerId>(["terrain", "buildings", "confidence"]);
+
 interface Props {
   layers: LayerSettings;
   onChange: (id: LayerId, next: { on: boolean; opacity: number }) => void;
@@ -76,39 +79,42 @@ interface Props {
 
 /** Every layer gets a thumbnail swatch, a checkbox, and an opacity slider with its percent, and shows its source. */
 export function LayerRows({ layers, onChange, followTide, onFollowTide }: Props) {
+  const row = (r: (typeof ROWS)[number]) => {
+    const s = layers[r.id];
+    const inputId = `layer-${r.id}`;
+    return (
+      <li key={r.id} className="flex items-center gap-2 py-1.5">
+        <label htmlFor={inputId} className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2 lg:min-h-9">
+          <input id={inputId} type="checkbox" checked={s.on} onChange={(e) => onChange(r.id, { ...s, on: e.target.checked })} className="h-4 w-4 shrink-0 accent-[#0d2230]" />
+          <span className="h-[34px] w-[34px] shrink-0 overflow-hidden rounded border border-line">{SWATCH[r.id]}</span>
+          <span className="min-w-0">
+            <span className="block truncate font-bold leading-tight">{r.name}</span>
+            <span className="block truncate text-[11.5px] leading-tight text-muted">{r.source}</span>
+          </span>
+        </label>
+        <div className="flex w-[92px] shrink-0 items-center gap-1">
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={Math.round(s.opacity * 100)}
+            disabled={!s.on}
+            onChange={(e) => onChange(r.id, { ...s, opacity: Number(e.target.value) / 100 })}
+            className="mini-range w-[56px] disabled:opacity-40"
+            aria-label={`Opacity of ${r.opacityName}`}
+          />
+          <span className="num w-[32px] text-right text-[11.5px] text-muted">{Math.round(s.opacity * 100)}%</span>
+        </div>
+      </li>
+    );
+  };
   return (
     <div className="text-[13px]">
-      <ul className="divide-y divide-line">
-        {ROWS.map((r) => {
-          const s = layers[r.id];
-          const inputId = `layer-${r.id}`;
-          return (
-            <li key={r.id} className="flex items-center gap-2 py-1.5">
-              <label htmlFor={inputId} className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2 lg:min-h-9">
-                <input id={inputId} type="checkbox" checked={s.on} onChange={(e) => onChange(r.id, { ...s, on: e.target.checked })} className="h-4 w-4 shrink-0 accent-[#0d2230]" />
-                <span className="h-[34px] w-[34px] shrink-0 overflow-hidden rounded border border-line">{SWATCH[r.id]}</span>
-                <span className="min-w-0">
-                  <span className="block truncate font-bold leading-tight">{r.name}</span>
-                  <span className="block truncate text-[11.5px] leading-tight text-muted">{r.source}</span>
-                </span>
-              </label>
-              <div className="flex w-[92px] shrink-0 items-center gap-1">
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={Math.round(s.opacity * 100)}
-                  disabled={!s.on}
-                  onChange={(e) => onChange(r.id, { ...s, opacity: Number(e.target.value) / 100 })}
-                  className="mini-range w-[56px] disabled:opacity-40"
-                  aria-label={`Opacity of ${r.opacityName}`}
-                />
-                <span className="num w-[32px] text-right text-[11.5px] text-muted">{Math.round(s.opacity * 100)}%</span>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      <ul className="divide-y divide-line">{ROWS.filter((r) => !MORE.has(r.id)).map(row)}</ul>
+      <details className="mt-1 border-t border-line pt-1">
+        <summary className="flex min-h-11 cursor-pointer items-center font-bold lg:min-h-9">More layers</summary>
+        <ul className="divide-y divide-line">{ROWS.filter((r) => MORE.has(r.id)).map(row)}</ul>
+      </details>
       <label className="mt-2 flex min-h-11 cursor-pointer items-start gap-2 border-t border-line pt-2 lg:min-h-0">
         <input type="checkbox" checked={followTide} onChange={(e) => onFollowTide(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0d2230]" />
         <span>Add the scrubber tide to the water layer. Water over the high-tide line at the selected gauge raises the layer, and the shoreline moves with it.</span>

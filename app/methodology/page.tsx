@@ -104,6 +104,13 @@ export default async function MethodologyPage() {
         <p>
           The Go see it tab names a viewing window of an hour on either side of the predicted peak, when the water sits close to its highest. It flags peaks near or after dark from approximate San Francisco sunrise and sunset times by month. Spots tied to the selected gauge are listed with reported flooding first, then the lowest NOAA step.
         </p>
+        <h3>Check a place</h3>
+        <p>
+          A tap or an address search reads NOAA&apos;s sea level rise tile for each whole foot from 0 to 10 at that point, at zoom 15, about 5 m per pixel. The first foot where the pixel is connected water is the answer. A low-lying pixel, below the water level but cut off from the Bay, is reported apart. Addresses come from <a href="https://photon.komoot.io">Photon</a>, an OpenStreetMap geocoder from Komoot, limited to the Bay Area.
+        </p>
+        <p>
+          The year beside a result comes from the state guidance above. Up to 0.8 ft reads as by 2050. Between 0.8 and 3.1 ft, the year is a straight line between the 2050 and 2100 intermediate values, rounded to five years. Up to 6.6 ft reads as by 2100 in the high scenario only, and anything higher reads as after 2100.
+        </p>
         <h3>Map layers</h3>
         <p>
           Aerial imagery comes from the <a href={LINKS.usgsImagery}>USGS National Map</a>, which is public domain. It shows banding over open water, so a flat water tint from <a href={LINKS.openFreeMap}>OpenFreeMap</a> covers the Bay. Terrain comes from <a href={LINKS.awsTerrain}>AWS Terrain Tiles (Mapzen)</a> in Terrarium encoding. That dataset includes Bay bathymetry, and Tideline sets everything below sea level to zero so the Bay stays one flat surface at 3x exaggeration. Roads, labels, and building footprints come from OpenFreeMap with <a href={LINKS.osm}>OpenStreetMap</a> data.
@@ -174,7 +181,7 @@ export default async function MethodologyPage() {
         <h2>Changelog</h2>
         <ol>
           <li>November 6, 2026. First release, with {overview.stations.length || 7} stations and 15 shoreline spots.</li>
-          <li>November 7, 2026. The water layer now draws a waterline, marks land wet only with added water, and moves smoothly between whole feet. Gauge staffs carry a 6 ft figure for scale. Added the Go see it tab and slider tips.</li>
+          <li>November 7, 2026. The water layer now draws a waterline, marks land wet only with added water, and moves smoothly between whole feet. Gauge staffs carry a 6 ft figure for scale. Added the Go see it tab and slider tips. Added Check a place, with a tap or an address search. Retired the Notes tab and the terrain exaggeration control.</li>
         </ol>
 
         <p className="mt-8">

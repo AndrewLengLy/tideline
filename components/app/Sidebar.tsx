@@ -1,12 +1,12 @@
 "use client";
 
-export type TabId = "visit" | "layers" | "station" | "notes";
+export type TabId = "visit" | "place" | "station" | "layers";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "visit", label: "Go see it" },
+  { id: "place", label: "Check a place" },
+  { id: "station", label: "Gauge" },
   { id: "layers", label: "Layers" },
-  { id: "station", label: "Station" },
-  { id: "notes", label: "Notes" },
 ];
 
 export function Tabs({ tab, onTab, idPrefix }: { tab: TabId; onTab: (t: TabId) => void; idPrefix: string }) {

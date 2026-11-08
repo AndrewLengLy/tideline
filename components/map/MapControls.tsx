@@ -3,8 +3,6 @@
 interface Props {
   is3D: boolean;
   on3D: (on: boolean) => void;
-  exaggeration: number;
-  onExaggeration: (x: number) => void;
   bearing: number;
   onResetBearing: () => void;
   onFullscreen: () => void;
@@ -14,8 +12,8 @@ interface Props {
 
 const BTN = "flex h-11 min-w-11 items-center justify-center bg-panel text-ink hover:bg-sunk md:h-9 md:min-w-9";
 
-/** Bottom-right cluster: 2D or 3D, terrain exaggeration, compass, and fullscreen. */
-export function MapControls({ is3D, on3D, exaggeration, onExaggeration, bearing, onResetBearing, onFullscreen, isFullscreen, webgl2 }: Props) {
+/** Bottom-right cluster: 2D or 3D, compass, and fullscreen. */
+export function MapControls({ is3D, on3D, bearing, onResetBearing, onFullscreen, isFullscreen, webgl2 }: Props) {
   return (
     <div className="pointer-events-auto flex items-center gap-1.5">
       {webgl2 ? (
@@ -27,23 +25,6 @@ export function MapControls({ is3D, on3D, exaggeration, onExaggeration, bearing,
             3D
           </button>
         </div>
-      ) : null}
-      {webgl2 ? (
-        <label className="flex h-11 items-center overflow-hidden rounded border border-line bg-panel md:h-9">
-          <span className="sr-only">Terrain exaggeration</span>
-          <select
-            className="num h-full cursor-pointer appearance-none bg-transparent px-2.5 text-[13px] text-ink disabled:opacity-40"
-            value={exaggeration}
-            disabled={!is3D}
-            onChange={(e) => onExaggeration(Number(e.target.value))}
-          >
-            {[1, 2, 3, 5].map((x) => (
-              <option key={x} value={x}>
-                {x}x
-              </option>
-            ))}
-          </select>
-        </label>
       ) : null}
       <button type="button" className={`${BTN} rounded border border-line`} onClick={onResetBearing} aria-label={`Reset bearing to north. Bearing is ${Math.round(bearing)} degrees`}>
         <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden style={{ rotate: `${-bearing}deg` }}>

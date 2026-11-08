@@ -1,7 +1,8 @@
 // Custom tile protocols. Each one fetches a public tile, repaints it on a canvas, and hands
 // MapLibre the result as a bitmap. This is how NOAA's palette becomes Tideline's blue steps.
 import maplibregl from "maplibre-gl";
-import { confTileUrl, decodeSlrTile, paintBand, paintEdge, paintFill, recolorConfTile, slrTileUrl, type SlrClasses } from "@/lib/sources/slr";
+import { confTileUrl, paintBand, paintEdge, paintFill, recolorConfTile } from "@/lib/sources/slr";
+import { classes } from "./slr-cache";
 
 const TERRAIN = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium";
 const SIZE = 256;
@@ -40,41 +41,6 @@ function flattenSeaFloor(d: Uint8ClampedArray) {
       d[i + 2] = 0;
     }
   }
-}
-
-/** Decoded NOAA tiles, shared by the fill, band, and edge paints. 256 tiles hold about 32 MB. */
-const CLASS_CACHE_MAX = 256;
-const classCache = new Map<string, Promise<SlrClasses | null>>();
-
-async function fetchClasses(ft: number, z: string, y: string, x: string): Promise<SlrClasses | null> {
-  const res = await fetch(slrTileUrl(ft, z, y, x));
-  if (!res.ok) return null;
-  const bmp = await createImageBitmap(await res.blob(), { premultiplyAlpha: "none", colorSpaceConversion: "none" });
-  const canvas = new OffscreenCanvas(bmp.width, bmp.height);
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!ctx) return null;
-  ctx.drawImage(bmp, 0, 0);
-  bmp.close();
-  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  return decodeSlrTile(img.data, img.width, img.height);
-}
-
-/** One fetch per step and tile, however many paints ask for it. A paint that is aborted leaves the fetch running for the others. */
-function classes(ft: number, z: string, y: string, x: string): Promise<SlrClasses | null> {
-  const key = `${ft}/${z}/${y}/${x}`;
-  const hit = classCache.get(key);
-  if (hit) {
-    classCache.delete(key);
-    classCache.set(key, hit);
-    return hit;
-  }
-  const p = fetchClasses(ft, z, y, x).catch(() => null);
-  classCache.set(key, p);
-  p.then((v) => {
-    if (!v) classCache.delete(key);
-  });
-  while (classCache.size > CLASS_CACHE_MAX) classCache.delete(classCache.keys().next().value!);
-  return p;
 }
 
 async function toBitmap(w: number, h: number, paint: (out: Uint8ClampedArray) => void): Promise<{ data: ImageBitmap }> {
@@ -121,3 +87,4 @@ export function registerProtocols() {
 }
 
 export const TILE_SIZE = SIZE;
+
