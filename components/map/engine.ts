@@ -715,7 +715,7 @@ export class TideEngine {
           characterSet: "auto",
           fontFamily: this.monoFamily,
           fontWeight: 500,
-          getPosition: (d) => [d.lng, d.lat, base(d) + FRAME_FT * scale],
+          getPosition: (d) => [d.lng, d.lat, base(d) + Math.max(FRAME_FT, PEDESTAL_FT + PERSON_FT + 0.5) * scale],
           getText: (d) => `${d.name}\n${vsHighTide(d.level)}${over(d) ? ", flooding" : ""}`,
           fontSettings: { sdf: true, fontSize: 64, buffer: 6, radius: 12 },
           lineHeight: 1.25,
