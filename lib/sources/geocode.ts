@@ -28,5 +28,7 @@ export async function searchPlaces(q: string, signal?: AbortSignal): Promise<Geo
   const res = await fetch(url, { signal });
   if (!res.ok) throw new Error(`Search failed with HTTP ${res.status}`);
   const json = (await res.json()) as { features?: PhotonFeature[] };
-  return (json.features ?? []).map((f) => ({ label: photonLabel(f.properties), lng: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }));
+  const hits = (json.features ?? []).map((f) => ({ label: photonLabel(f.properties), lng: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }));
+  // OpenStreetMap often holds one street as several pieces with the same name. Keep the first.
+  return hits.filter((h, i) => hits.findIndex((o) => o.label === h.label) === i);
 }
