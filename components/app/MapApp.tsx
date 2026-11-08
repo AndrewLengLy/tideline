@@ -19,6 +19,7 @@ import { readUrlState, writeUrlState } from "../map/url-state";
 import { WaterSlider } from "../map/WaterSlider";
 import { MiniCharts } from "./BottomPanel";
 import { BottomSheet, PEEK_HEIGHT, type Snap } from "./BottomSheet";
+import { deriveKeyEvents, KeyEvents } from "./KeyEvents";
 import { LayerRows } from "./LayerRows";
 import { PlaceCheck, type Place } from "./PlaceCheck";
 import { Sidebar, Tabs, type TabId } from "./Sidebar";
@@ -74,6 +75,7 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
   const [sliderTip, setSliderTip] = useState(false);
   const [layout, setLayout] = useState<"pending" | "phone" | "desktop">("pending");
   const [tide, setTide] = useState({ effective: 0, level: 0, add: 0 });
+  const [wetBuildings, setWetBuildings] = useState<{ n: number; ft: number } | null>(null);
   const viewRef = useRef<ViewState | null>(null);
 
   const playhead = useMemo(() => new Playhead(), []);
@@ -133,7 +135,9 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
       setPlace({ ...u.pin, label: null });
       setTab("place");
     }
-    if (phone) setExaggeration(2);
+    if (u.ex !== null) setExaggeration(u.ex);
+    else if (phone) setExaggeration(2);
+    if (u.ex !== null) setTouched(true);
     if (u.compare) setCompare(true);
     if (u.t || u.ft !== null || u.view.lat !== undefined) setTouched(true);
     /* eslint-enable react-hooks/set-state-in-effect */
@@ -195,8 +199,8 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
 
   // Address bar. Stays clean until the visitor changes something, then every view is shareable.
   const writeUrl = useCallback(() => {
-    writeUrlState({ t: dayStart(from) + Math.round(playhead.getPos()) * STEP_MS, view: viewRef.current, station: stationId, ft, compare, pin: place });
-  }, [from, playhead, stationId, ft, compare, place]);
+    writeUrlState({ t: dayStart(from) + Math.round(playhead.getPos()) * STEP_MS, view: viewRef.current, station: stationId, ft, compare, pin: place, ex: exaggeration });
+  }, [from, playhead, stationId, ft, compare, place, exaggeration]);
   const touchedRef = useRef(touched);
   const writeUrlRef = useRef(writeUrl);
   useEffect(() => {
@@ -257,6 +261,27 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
     }
     return out;
   }, [frames, stationOverview, station, ft]);
+
+  const keyEvents = useMemo(() => {
+    const toKey = (e: ScrubberEvent) => ({ index: e.index, at: frames.t0 + e.index * STEP_MS, kind: e.kind, label: e.kind === "king" ? e.label : `Crosses the minor threshold (+${ft} ft)` });
+    return deriveKeyEvents({
+      t0: frames.t0,
+      stepMs: STEP_MS,
+      predicted: frames.predicted.get(station.id) ?? null,
+      kings: events.filter((e) => e.kind === "king").map(toKey),
+      crossings: events.filter((e) => e.kind === "threshold").map(toKey),
+      surge: frames.observed.get(station.id)?.surge ?? null,
+    });
+  }, [events, frames, station, ft]);
+
+  const onKeyEvent = useCallback(
+    (index: number) => {
+      playhead.set(index);
+      setPlaying(false);
+      setTouched(true);
+    },
+    [playhead],
+  );
 
   const onScrub = useCallback(() => setTouched(true), []);
 
@@ -412,6 +437,7 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
     return (
       <div className="space-y-4">
         <StationSummary station={station} overview={stationOverview} now={now} asOf={overview.asOf} surge={observedSeries?.surge ?? null} surgeAsOf={observedSeries?.asOf ?? null} />
+        <KeyEvents events={keyEvents} onPick={onKeyEvent} activeIndex={null} />
         {mobile ? charts("space-y-4 border-t border-line pt-3", 110) : null}
       </div>
     );
@@ -434,6 +460,11 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
             compare={compare}
             compareFt={Math.max(ft, tide.effective)}
             exaggeration={exaggeration}
+            onExaggeration={(x) => {
+              setExaggeration(x);
+              setTouched(true);
+            }}
+            onWetBuildings={setWetBuildings}
             is3D={is3D}
             on3D={setIs3D}
             playhead={playhead}
@@ -498,6 +529,7 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
             if (on && ft === 0) setFt(3);
           }}
           canCompare={boot?.webgl2 ?? true}
+          wetBuildings={wetBuildings}
         />
       </div>
 

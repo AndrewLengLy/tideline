@@ -12,10 +12,10 @@ const SWATCH: Record<LayerId, React.ReactNode> = {
   ),
   imagery: (
     <svg viewBox="0 0 34 34" className="h-full w-full" aria-hidden>
-      <rect width="34" height="34" fill="#a69d7f" />
-      <path d="M0 0h20L8 34H0z" fill="#7d8a61" />
-      <path d="M22 0h12v14z" fill="#8fb4c4" />
-      <path d="M14 34 24 12l10 8v14z" fill="#c4b99c" />
+      <rect width="34" height="34" fill="#8a9ca8" />
+      <path d="M0 0h20L8 34H0z" fill="#5f7786" />
+      <path d="M22 0h12v14z" fill="#21384a" />
+      <path d="M14 34 24 12l10 8v14z" fill="#b9c8d0" />
     </svg>
   ),
   slr: (
@@ -44,7 +44,8 @@ const SWATCH: Record<LayerId, React.ReactNode> = {
   buildings: (
     <svg viewBox="0 0 34 34" className="h-full w-full" aria-hidden>
       <rect width="34" height="34" fill="#dfe5e8" />
-      <path d="M5 34V16h9v18zM17 34V7h11v27z" fill="#e6e1d8" stroke="#8a948f" />
+      <path d="M17 34V7h11v27z" fill="#e6e1d8" stroke="#8a948f" />
+      <path d="M5 34V16h9v18z" fill="#e76f51" stroke="#a93f25" />
     </svg>
   ),
   spots: (
@@ -63,7 +64,7 @@ const ROWS: { id: LayerId; name: string; source: string; opacityName: string }[]
   { id: "slr", name: "Sea level rise", source: "NOAA SLR Viewer, slr_{N}ft", opacityName: "sea level rise" },
   { id: "confidence", name: "Mapping confidence", source: "NOAA SLR Viewer, conf_{N}ft", opacityName: "mapping confidence" },
   { id: "thresholds", name: "Flood thresholds", source: "NOAA CO-OPS gauges", opacityName: "gauge columns" },
-  { id: "buildings", name: "Buildings", source: "OpenFreeMap, OpenStreetMap", opacityName: "buildings" },
+  { id: "buildings", name: "Buildings, coral in the water", source: "OpenFreeMap, OpenStreetMap. Coral tested against NOAA", opacityName: "buildings" },
   { id: "spots", name: "Shoreline spots", source: "Tideline, from public sources", opacityName: "shoreline spots" },
 ];
 

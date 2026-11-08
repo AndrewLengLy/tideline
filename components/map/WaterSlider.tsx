@@ -4,6 +4,7 @@ import { signedFt } from "@/lib/format";
 import { STEP_COLORS, stepColor } from "@/lib/colors";
 import { LINKS } from "@/lib/site";
 import type { MapPlace } from "@/lib/types";
+import { wetSentence } from "./wet-buildings";
 
 interface Props {
   value: number;
@@ -19,6 +20,8 @@ interface Props {
   canCompare: boolean;
   /** True once the visitor has moved the slider. The tip for the current foot shows from then on. */
   showTip: boolean;
+  /** Buildings on screen inside the mapped water, from the map. Null when the check is off. */
+  wetBuildings: { n: number; ft: number } | null;
 }
 
 /** One line per range, from the State of California Sea Level Rise Guidance, 2024 (statewide figures). */
@@ -34,7 +37,7 @@ export function sliderTip(ft: number, kingEq: number | null): string {
 const TICKS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
 
 /** The signature control. A native range input, so arrow keys and screen readers work without extra code. */
-export function WaterSlider({ value, onChange, effective, tideAddFt, kingEq, kingLabel, placesByFt, compare, onCompare, canCompare, showTip }: Props) {
+export function WaterSlider({ value, onChange, effective, tideAddFt, kingEq, kingLabel, placesByFt, compare, onCompare, canCompare, showTip, wetBuildings }: Props) {
   const here = placesByFt.get(effective) ?? [];
   return (
     <div className="flex items-start gap-2">
@@ -104,7 +107,7 @@ export function WaterSlider({ value, onChange, effective, tideAddFt, kingEq, kin
           </button>
         ) : null}
       </div>
-      {showTip || effective > 0 || tideAddFt > 0 ? (
+      {showTip || effective > 0 || tideAddFt > 0 || wetBuildings ? (
         <div className={`panel max-w-[210px] px-2.5 py-1.5 text-[12.5px] leading-snug ${showTip ? "block" : "hidden md:block"}`} data-testid="water-places">
           {showTip ? (
             <p data-testid="slider-tip">
@@ -128,6 +131,12 @@ export function WaterSlider({ value, onChange, effective, tideAddFt, kingEq, kin
               </p>
             ) : effective > 0 ? (
               <p className="mt-1 text-muted">No listed place first floods at this step.</p>
+            ) : null}
+            {wetBuildings ? (
+              <p className="mt-1 flex items-start gap-1.5" data-testid="wet-buildings">
+                <span className="mt-[5px] inline-block h-2 w-2 shrink-0 rounded-[2px] bg-coral" aria-hidden />
+                <span>{wetSentence(wetBuildings.n, wetBuildings.ft)}</span>
+              </p>
             ) : null}
           </div>
         </div>

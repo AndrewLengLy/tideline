@@ -12,6 +12,8 @@ export interface UrlState {
   play: boolean;
   /** A checked place, from ?pin=lat,lng. */
   pin: { lat: number; lng: number } | null;
+  /** Terrain height, from ?ex=. */
+  ex: number | null;
 }
 
 /** Reads ?t=2026-11-05T14:00Z&lat=&lng=&z=&pitch=&bearing=&station=&ft= from the address bar. */
@@ -31,7 +33,14 @@ export function readUrlState(): UrlState {
     compare: q.get("compare") === "1",
     play: q.get("play") === "1",
     pin: parsePin(q.get("pin")),
+    ex: parseEx(num("ex")),
   };
+}
+
+const EX_STEPS = [1, 2, 3, 5];
+
+function parseEx(v: number | undefined): number | null {
+  return v !== undefined && EX_STEPS.includes(v) ? v : null;
 }
 
 function parsePin(v: string | null): { lat: number; lng: number } | null {
@@ -49,6 +58,7 @@ export interface UrlWrite {
   ft: number;
   compare: boolean;
   pin: { lat: number; lng: number } | null;
+  ex: number;
 }
 
 let timer: ReturnType<typeof setTimeout> | null = null;
@@ -79,6 +89,8 @@ export function writeUrlState(next: UrlWrite) {
     else q.delete("pin");
     if (s.compare) q.set("compare", "1");
     else q.delete("compare");
+    if (s.ex !== 3) q.set("ex", String(s.ex));
+    else q.delete("ex");
     const str = q.toString().replace(/%3A/gi, ":");
     window.history.replaceState(window.history.state, "", `${window.location.pathname}?${str}`);
   }, 300);
