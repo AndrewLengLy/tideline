@@ -230,7 +230,7 @@ export function Scrubber(props: Props) {
                       style={{ width: size, height: size, left: -size / 2, top: -size / 2, borderWidth: tn.peak ? 1.5 : 1 }}
                     />
                     {tn.peak ? (
-                      <span className={`num absolute whitespace-nowrap rounded-sm bg-panel/90 px-1 text-[10px] leading-[13px] text-ink ${left > 80 ? "right-[7px]" : "left-[7px]"} ${tn.kind === "high" ? "-top-[3px]" : "-top-[15px]"}`}>
+                      <span className={`num absolute whitespace-nowrap z-10 rounded-sm border border-line bg-panel px-1 text-[10px] leading-[13px] text-ink ${left > 80 ? "right-[7px]" : "left-[7px]"} ${tn.kind === "high" ? "-top-[3px]" : "-top-[15px]"}`}>
                         {tn.kind === "high" ? "Highest" : "Lowest"} {tn.value.toFixed(1)} ft
                       </span>
                     ) : null}

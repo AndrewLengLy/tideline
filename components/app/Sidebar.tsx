@@ -4,7 +4,7 @@ export type TabId = "visit" | "place" | "station" | "layers";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "visit", label: "Go see it" },
-  { id: "place", label: "Check a place" },
+  { id: "place", label: "Your place" },
   { id: "station", label: "Gauge" },
   { id: "layers", label: "Layers" },
 ];
