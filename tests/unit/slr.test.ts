@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { PNG } from "pngjs";
 import { describe, expect, it } from "vitest";
 import { hexToRgb, STEP_COLORS } from "@/lib/colors";
-import { classifySlrPixel, confTileUrl, recolorConfTile, recolorSlrTile, slrTileUrl } from "@/lib/sources/slr";
+import { classifySlrPixel, confTileUrl, decodeSlrTile, paintBand, paintEdge, paintFill, recolorConfTile, slrTileUrl } from "@/lib/sources/slr";
 
 const decode = (name: string) => {
   const png = PNG.sync.read(readFileSync(join(process.cwd(), "tests", "fixtures", name)));
@@ -38,49 +38,63 @@ describe("NOAA tile classes", () => {
 });
 
 describe("tile repaint", () => {
-  it("removes NOAA's open water and green and paints flooded land in the step blue", () => {
-    const { w, h, data } = decode("slr-6ft-tile.png");
-    const before = tally(data);
-    expect(before.flooded).toBeGreaterThan(0);
-    recolorSlrTile(data, w, h, 6);
+  const classesOf = (name: string) => {
+    const { w, h, data } = decode(name);
+    return decodeSlrTile(data, w, h);
+  };
+  const wet = (c: number) => c === 1 || c === 2;
+
+  it("paints only land that floods beyond today's high tide in the step blue", () => {
+    const base = classesOf("slr-0ft-tile.png");
+    const cur = classesOf("slr-6ft-tile.png");
+    const out = new Uint8ClampedArray(cur.w * cur.h * 4);
+    paintFill(out, cur, base, 6);
     const [r, g, b] = hexToRgb(STEP_COLORS[6]);
-    let green = 0;
-    let navy = 0;
-    let blueish = 0;
-    for (let i = 0; i < data.length; i += 4) {
-      if (data[i + 3] === 0) continue;
-      if (data[i] === 85 && data[i + 1] === 255 && data[i + 2] === 0) green++;
-      if (data[i] === 9 && data[i + 1] === 9 && data[i + 2] === 145) navy++;
-      // Depth darkens the step color toward (6,34,66), so each channel sits between the two.
-      const between = (v: number, a: number, c: number) => v >= Math.min(a, c) && v <= Math.max(a, c);
-      if (between(data[i], 6, r) && between(data[i + 1], 34, g) && between(data[i + 2], 66, b)) blueish++;
+    const between = (v: number, a: number, c: number) => v >= Math.min(a, c) && v <= Math.max(a, c);
+    let fresh = 0;
+    let freshBlue = 0;
+    let openPainted = 0;
+    for (let i = 0; i < cur.cls.length; i++) {
+      const o = i * 4;
+      if (cur.cls[i] === 2 && !wet(base.cls[i])) {
+        fresh++;
+        if (out[o + 3] === 255 && between(out[o], 6, r) && between(out[o + 1], 34, g) && between(out[o + 2], 66, b)) freshBlue++;
+      }
+      if (cur.cls[i] === 1 && out[o + 3] === 255 && out[o] < 200) openPainted++;
     }
-    expect(green).toBe(0);
-    expect(navy).toBe(0);
-    expect(blueish).toBeGreaterThan(before.flooded * 0.5);
+    expect(fresh).toBeGreaterThan(0);
+    expect(freshBlue).toBeGreaterThan(fresh * 0.8);
+    expect(openPainted).toBe(0);
   });
 
-  it("draws an edge only where water meets land, and never on the tile border", () => {
-    const w = 8;
-    const h = 8;
+  it("paints a band only where the upper step is wet and the lower step is not", () => {
+    const lower = classesOf("slr-0ft-tile.png");
+    const upper = classesOf("slr-6ft-tile.png");
+    const out = new Uint8ClampedArray(upper.w * upper.h * 4);
+    paintBand(out, upper, lower, 6);
+    for (let i = 0; i < upper.cls.length; i++) {
+      if (out[i * 4 + 3] === 255 && wet(upper.cls[i])) expect(wet(lower.cls[i])).toBe(false);
+      if (wet(lower.cls[i])) expect(out[i * 4 + 3]).toBe(0);
+    }
+  });
+
+  it("draws the waterline where water meets land, with a dark halo, and never on the tile border", () => {
+    const w = 10;
+    const h = 10;
     const data = new Uint8ClampedArray(w * h * 4);
     // Left half open water, right half dry land.
     for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const o = (y * w + x) * 4;
-        if (x < 4) {
-          data.set([9, 9, 145, 255], o);
-        } else {
-          data.set([253, 253, 253, 0], o);
-        }
-      }
+      for (let x = 0; x < w; x++) data.set(x < 5 ? [9, 9, 145, 255] : [253, 253, 253, 0], (y * w + x) * 4);
     }
-    recolorSlrTile(data, w, h, 3);
-    const px = (x: number, y: number) => Array.from(data.slice((y * w + x) * 4, (y * w + x) * 4 + 4));
-    expect(px(1, 4)[3]).toBe(0); // open water clears
-    expect(px(3, 4)[3]).toBe(255); // shore pixel lights up
-    expect(px(3, 0)[3]).toBe(0); // top border stays clear so tile seams never draw
-    expect(px(6, 4)[3]).toBe(0); // land stays clear
+    const out = new Uint8ClampedArray(w * h * 4);
+    paintEdge(out, decodeSlrTile(data, w, h));
+    const px = (x: number, y: number) => Array.from(out.slice((y * w + x) * 4, (y * w + x) * 4 + 4));
+    expect(px(1, 5)[3]).toBe(0); // open water away from shore stays clear
+    expect(px(4, 5)[3]).toBe(255); // shore pixel lights up
+    expect(px(3, 5)[3]).toBe(255); // the line is two pixels wide
+    expect(px(5, 5)[3]).toBe(150); // dark halo on the dry side
+    expect(px(7, 5)[3]).toBe(0); // land away from shore stays clear
+    expect(px(4, 0)[3]).toBe(0); // top border stays clear so tile seams never draw
   });
 
   it("turns low confidence into a hatch and clears everything else", () => {

@@ -24,7 +24,6 @@ interface Props {
   compare: boolean;
   compareFt: number;
   exaggeration: number;
-  onExaggeration: (x: number) => void;
   is3D: boolean;
   on3D: (on: boolean) => void;
   playhead: Playhead;
@@ -37,6 +36,8 @@ interface Props {
   controlsClassName: string;
   onView: (v: ViewState) => void;
   onPickGauge: (id: string) => void;
+  onPickPoint: (p: { lng: number; lat: number }) => void;
+  pin: { lng: number; lat: number } | null;
   onStage: (stage: "base" | "full") => void;
 }
 
@@ -68,6 +69,7 @@ export default function MapStage(props: Props) {
       onView: (v) => latest.current.onView(v),
       onLive: (v) => setBearing(v.bearing),
       onPickGauge: (id) => latest.current.onPickGauge(id),
+      onPickPoint: (p) => latest.current.onPickPoint(p),
       onStage: (s) => latest.current.onStage(s),
     });
     engine.current = e;
@@ -76,6 +78,7 @@ export default function MapStage(props: Props) {
     e.setWater(latest.current.waterFt);
     e.setGauges(latest.current.getGauges());
     e.setCallouts(latest.current.callouts);
+    e.setPin(latest.current.pin);
     (window as unknown as { __tideEngine?: TideEngine }).__tideEngine = e;
     return () => {
       e.destroy();
@@ -90,6 +93,7 @@ export default function MapStage(props: Props) {
   useEffect(() => engine.current?.set3D(is3D), [is3D]);
   useEffect(() => engine.current?.setCallouts(callouts), [callouts]);
   useEffect(() => engine.current?.setPadding(padding), [padding]);
+  useEffect(() => engine.current?.setPin(props.pin), [props.pin]);
 
   // Column heights follow the playhead without going through React state.
   useEffect(() => {
@@ -206,8 +210,6 @@ export default function MapStage(props: Props) {
         <MapControls
           is3D={is3D}
           on3D={props.on3D}
-          exaggeration={exaggeration}
-          onExaggeration={props.onExaggeration}
           bearing={bearing}
           onResetBearing={() => engine.current?.resetBearing()}
           onFullscreen={toggleFullscreen}

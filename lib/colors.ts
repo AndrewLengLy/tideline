@@ -28,7 +28,11 @@ export const STEP_COLORS = [
   "#0c3659",
 ] as const;
 
-export const STEP_EDGE = "#e8f7ff";
+/** The waterline drawn at the current water level, with a dark halo on the dry side. */
+export const WATERLINE = "#f2fbff";
+export const WATERLINE_HALO = "#0d2230";
+/** Land that is already wet at today's high tide, such as marsh and salt ponds. */
+export const WET_TODAY = "#c4dfec";
 
 export function hexToRgb(hex: string): [number, number, number] {
   return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) as [number, number, number];

@@ -13,7 +13,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: ${TILE_HOSTS}${PREVIEW}`,
   "font-src 'self' data:",
-  `connect-src 'self' ${TILE_HOSTS}${isDev ? " ws:" : ""}${PREVIEW}`,
+  `connect-src 'self' ${TILE_HOSTS} https://photon.komoot.io${isDev ? " ws:" : ""}${PREVIEW}`,
   "worker-src 'self' blob:",
   "child-src 'self' blob:",
   `frame-src 'self'${PREVIEW}`,

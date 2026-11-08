@@ -1,7 +1,8 @@
 // Custom tile protocols. Each one fetches a public tile, repaints it on a canvas, and hands
 // MapLibre the result as a bitmap. This is how NOAA's palette becomes Tideline's blue steps.
 import maplibregl from "maplibre-gl";
-import { confTileUrl, recolorConfTile, recolorSlrTile, slrTileUrl } from "@/lib/sources/slr";
+import { confTileUrl, paintBand, paintEdge, paintFill, recolorConfTile } from "@/lib/sources/slr";
+import { classes } from "./slr-cache";
 
 const TERRAIN = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium";
 const SIZE = 256;
@@ -42,15 +43,34 @@ function flattenSeaFloor(d: Uint8ClampedArray) {
   }
 }
 
+async function toBitmap(w: number, h: number, paint: (out: Uint8ClampedArray) => void): Promise<{ data: ImageBitmap }> {
+  const img = new ImageData(w, h);
+  paint(img.data);
+  return { data: await createImageBitmap(img, { premultiplyAlpha: "none", colorSpaceConversion: "none" }) };
+}
+
+export type SlrPaint = "fill" | "band" | "edge";
+
 export function registerProtocols() {
   if (registered) return;
   registered = true;
 
+  // tideslr://{fill|band|edge}/{ft}/{z}/{y}/{x}. A band covers the land between ft and ft + 1.
   maplibregl.addProtocol("tideslr", async (params, abort) => {
-    const m = /^tideslr:\/\/(\d+)\/(\d+)\/(\d+)\/(\d+)/.exec(params.url);
+    const m = /^tideslr:\/\/(fill|band|edge)\/(\d+)\/(\d+)\/(\d+)\/(\d+)/.exec(params.url);
     if (!m) throw new Error(`Bad tile URL ${params.url}`);
-    const ft = Number(m[1]);
-    return repaint(slrTileUrl(ft, m[2], m[3], m[4]), abort.signal, (d, w, h) => recolorSlrTile(d, w, h, ft));
+    const kind = m[1] as SlrPaint;
+    const ft = Number(m[2]);
+    const [z, y, x] = [m[3], m[4], m[5]];
+    const cur = await classes(ft, z, y, x);
+    if (abort.signal.aborted) throw new DOMException("Aborted", "AbortError");
+    if (!cur) return { data: await blankTile() };
+    if (kind === "edge") return toBitmap(cur.w, cur.h, (out) => paintEdge(out, cur));
+    const other = await classes(kind === "fill" ? 0 : Math.min(10, ft + 1), z, y, x);
+    if (abort.signal.aborted) throw new DOMException("Aborted", "AbortError");
+    if (!other || other.w !== cur.w || other.h !== cur.h) return { data: await blankTile() };
+    if (kind === "fill") return toBitmap(cur.w, cur.h, (out) => paintFill(out, cur, other, ft));
+    return toBitmap(cur.w, cur.h, (out) => paintBand(out, other, cur, ft + 1));
   });
 
   maplibregl.addProtocol("tideconf", async (params, abort) => {
@@ -67,3 +87,4 @@ export function registerProtocols() {
 }
 
 export const TILE_SIZE = SIZE;
+

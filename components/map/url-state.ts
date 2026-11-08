@@ -10,6 +10,8 @@ export interface UrlState {
   ft: number | null;
   compare: boolean;
   play: boolean;
+  /** A checked place, from ?pin=lat,lng. */
+  pin: { lat: number; lng: number } | null;
 }
 
 /** Reads ?t=2026-11-05T14:00Z&lat=&lng=&z=&pitch=&bearing=&station=&ft= from the address bar. */
@@ -28,7 +30,16 @@ export function readUrlState(): UrlState {
     ft: ft === undefined ? null : Math.max(0, Math.min(10, Math.round(ft))),
     compare: q.get("compare") === "1",
     play: q.get("play") === "1",
+    pin: parsePin(q.get("pin")),
   };
+}
+
+function parsePin(v: string | null): { lat: number; lng: number } | null {
+  const m = v ? /^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/.exec(v) : null;
+  if (!m) return null;
+  const lat = Number(m[1]);
+  const lng = Number(m[2]);
+  return Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? { lat, lng } : null;
 }
 
 export interface UrlWrite {
@@ -37,6 +48,7 @@ export interface UrlWrite {
   station: string;
   ft: number;
   compare: boolean;
+  pin: { lat: number; lng: number } | null;
 }
 
 let timer: ReturnType<typeof setTimeout> | null = null;
@@ -63,6 +75,8 @@ export function writeUrlState(next: UrlWrite) {
     }
     q.set("station", s.station);
     q.set("ft", String(s.ft));
+    if (s.pin) q.set("pin", `${s.pin.lat.toFixed(5)},${s.pin.lng.toFixed(5)}`);
+    else q.delete("pin");
     if (s.compare) q.set("compare", "1");
     else q.delete("compare");
     const str = q.toString().replace(/%3A/gi, ":");

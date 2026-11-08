@@ -96,6 +96,21 @@ export default async function MethodologyPage() {
         <p>
           The <a href={LINKS.kingTides}>California Coastal Commission</a> confirms official statewide dates each fall. Those dates are stored by hand and shown as a separate label. Tideline computes its own highest tides from predictions and never treats the two as the same thing. Photos go to the Project through its <a href={LINKS.kingTidesUpload}>upload form</a>.
         </p>
+        <h3>State of California Sea Level Rise Guidance</h3>
+        <p>
+          The slider tips quote the Ocean Protection Council&apos;s <a href={LINKS.opcGuidance}>2024 Science and Policy Update</a>, using its statewide figures against a 2000 baseline. That means about 0.8 ft of rise by 2050, a likely 1.6 to 3.1 ft by 2100, 6.6 ft by 2100 in the high scenario, and as much as 11.9 ft by 2150. Bay gauges differ from the statewide figure by a few tenths of a foot, mostly from land motion.
+        </p>
+        <h3>Planning a visit</h3>
+        <p>
+          The Go see it tab names a viewing window of an hour on either side of the predicted peak, when the water sits close to its highest. It flags peaks near or after dark from approximate San Francisco sunrise and sunset times by month. Spots tied to the selected gauge are listed with reported flooding first, then the lowest NOAA step.
+        </p>
+        <h3>Check a place</h3>
+        <p>
+          A tap or an address search reads NOAA&apos;s sea level rise tile for each whole foot from 0 to 10 at that point, at zoom 15, about 5 m per pixel. The first foot where the pixel is connected water is the answer. A low-lying pixel, below the water level but cut off from the Bay, is reported apart. Addresses come from <a href="https://photon.komoot.io">Photon</a>, an OpenStreetMap geocoder from Komoot, limited to the Bay Area.
+        </p>
+        <p>
+          The year beside a result comes from the state guidance above. Up to 0.8 ft reads as by 2050. Between 0.8 and 3.1 ft, the year is a straight line between the 2050 and 2100 intermediate values, rounded to five years. Up to 6.6 ft reads as by 2100 in the high scenario only, and anything higher reads as after 2100.
+        </p>
         <h3>Map layers</h3>
         <p>
           Aerial imagery comes from the <a href={LINKS.usgsImagery}>USGS National Map</a>, which is public domain. It shows banding over open water, so a flat water tint from <a href={LINKS.openFreeMap}>OpenFreeMap</a> covers the Bay. Terrain comes from <a href={LINKS.awsTerrain}>AWS Terrain Tiles (Mapzen)</a> in Terrarium encoding. That dataset includes Bay bathymetry, and Tideline sets everything below sea level to zero so the Bay stays one flat surface at 3x exaggeration. Roads, labels, and building footprints come from OpenFreeMap with <a href={LINKS.osm}>OpenStreetMap</a> data.
@@ -136,9 +151,11 @@ export default async function MethodologyPage() {
         <p>Wide places on the slider, such as airports, use a larger grid and need half of their land wet. Several spots have reports of water at king tides well below their step on NOAA&apos;s layer, and their pages say so. The Embarcadero is one example. That gap is a limit of the layer.</p>
         <h3>Water on the map</h3>
         <p>
-          <code>layer = round(slider + max(0, tide above MHHW at the selected gauge))</code>
+          <code>level = slider + max(0, tide above MHHW at the selected gauge)</code>
         </p>
-        <p>The scrubber can add its tide to the slider, which is on by default. Water above MHHW raises the layer to the nearest foot. A checkbox in the Layers tab turns this off. Gauge columns show water level above MHHW at the scrubber time plus the slider. Observed readings replace predictions wherever both exist. Column heights are drawn for legibility and exaggerated with the terrain setting, and each label prints the true value.</p>
+        <p>The scrubber can add its tide to the slider, which is on by default. A checkbox in the Layers tab turns this off. NOAA publishes one layer per whole foot, so the map draws the whole foot below the level and fades in the band of land between it and the next foot by the fraction. A level of 2.4 ft shows the 2 ft water plus 40 percent of the 2 to 3 ft band. This is a visual blend between two NOAA layers. NOAA models no water at fractional feet.</p>
+        <p>Each layer is drawn against the 0 ft layer, today&apos;s MHHW. Land that is wet only with added water takes the step blue. Land already wet at 0 ft, mostly marsh and salt ponds, gets a pale tint. The waterline is traced on the wet side of every pixel that touches dry land.</p>
+        <p>Gauge staffs show water level above MHHW at the scrubber time plus the slider. Observed readings replace predictions wherever both exist. The 6 ft figure stands at MHHW, the height of the shoreline at an ordinary high tide. Staff and figure heights are drawn for legibility and exaggerated with the terrain setting, and each label prints the true value.</p>
 
         <h2>What this tool cannot tell you</h2>
         <p>
@@ -164,6 +181,7 @@ export default async function MethodologyPage() {
         <h2>Changelog</h2>
         <ol>
           <li>November 6, 2026. First release, with {overview.stations.length || 7} stations and 15 shoreline spots.</li>
+          <li>November 7, 2026. The water layer now draws a waterline, marks land wet only with added water, and moves smoothly between whole feet. Gauge staffs carry a 6 ft figure for scale. Added the Go see it tab and slider tips. Added Check a place, with a tap or an address search. Retired the Notes tab and the terrain exaggeration control.</li>
         </ol>
 
         <p className="mt-8">
