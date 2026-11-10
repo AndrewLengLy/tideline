@@ -4,7 +4,7 @@ import { PageShell } from "@/components/PageShell";
 import { getOverview } from "@/lib/data";
 import { fmtAsOf, fmtMonthDay, ft } from "@/lib/format";
 import { jsonLdHtml } from "@/lib/jsonld";
-import { DEFAULT_STATION_ID, LINKS, REPO_URL, SAFETY_LINE } from "@/lib/site";
+import { AUTHOR_NAME, AUTHOR_URL, DEFAULT_STATION_ID, LINKS, REPO_URL, SAFETY_LINE } from "@/lib/site";
 import { addDays, pacificDay } from "@/lib/time";
 
 export const revalidate = 3600;
@@ -63,7 +63,7 @@ export default async function MethodologyPage() {
       <article className="prose-field max-w-2xl">
         <h1 className="text-[30px]">How Tideline works</h1>
         <p>
-          A field note on a small analysis tool, built by <a href="https://andrewlengly.com">Andrew Leng Ly</a> as part of a series on hazard data. Every source it uses works with no key.
+          A field note on a small analysis tool, built by <a href={AUTHOR_URL}>{AUTHOR_NAME}</a> as part of a series on hazard data. Every source it uses works with no key.
         </p>
 
         <h2>The question</h2>

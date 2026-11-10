@@ -17,12 +17,9 @@ export function Footer({ className = "" }: { className?: string }) {
   return (
     <footer className={`flex flex-col gap-2 border-t border-line bg-panel px-3 py-3 text-[13px] leading-snug text-muted lg:flex-row lg:items-center lg:justify-between lg:gap-4 lg:py-1 lg:text-[11px] ${className}`}>
       <p className="flex shrink-0 flex-wrap gap-x-3 gap-y-1">
-        <span>
-          Built by{" "}
-          <a className={LINK} href={AUTHOR_URL}>
-            {AUTHOR_NAME}
-          </a>
-        </span>
+        <a className={LINK} href={AUTHOR_URL}>
+          Built by {AUTHOR_NAME}
+        </a>
         <Link className={LINK} href="/methodology">
           Methodology
         </Link>
