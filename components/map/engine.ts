@@ -611,6 +611,8 @@ export class TideEngine {
       dot.className = "callout-dot";
       el.append(card, leader, dot);
       const marker = new maplibregl.Marker({ element: el, anchor: "bottom" }).setLngLat([item.lng, item.lat]).addTo(this.map);
+      // MapLibre marks every marker as a button named "Map marker". The card inside is the link, so the wrapper stays plain.
+      for (const attr of ["role", "aria-label", "tabindex"]) el.removeAttribute(attr);
       this.markers.set(item.id, { marker, el, item });
     }
     this.scheduleCallouts();

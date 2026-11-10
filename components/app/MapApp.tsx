@@ -384,38 +384,6 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
       <div className="absolute inset-0 lg:hidden" style={{ backgroundImage: POSTER_PHONE, backgroundSize: "cover", backgroundPosition: "center" }} aria-hidden />
       <div className="absolute inset-0 hidden lg:block" style={{ backgroundImage: POSTER_DESKTOP, backgroundSize: "cover", backgroundPosition: "center" }} aria-hidden />
 
-      <section aria-label={ariaLabel} className="absolute inset-0">
-        {boot ? (
-          <MapStage
-            initialView={boot.view}
-            phone={boot.phone}
-            webgl2={boot.webgl2}
-            layers={layers}
-            waterFt={compare ? Math.max(ft, tide.effective) : tide.effective}
-            compare={compare}
-            compareFt={Math.max(ft, tide.effective)}
-            exaggeration={exaggeration}
-            onExaggeration={setExaggeration}
-            is3D={is3D}
-            on3D={setIs3D}
-            playhead={playhead}
-            getGauges={getGauges}
-            gaugesKey={gaugesKey}
-            callouts={callouts}
-            fly={fly}
-            ariaLabel={ariaLabel}
-            padding={padding}
-            controlsClassName="pointer-events-none absolute right-2 top-[106px] z-10 lg:top-auto lg:bottom-[calc(214px+var(--footer-h)+34px)] lg:right-[calc(340px+10px)]"
-            onView={onView}
-            onPickGauge={onStation}
-            onStage={() => undefined}
-          />
-        ) : null}
-        <p className="sr-only" aria-live="polite">
-          {`Water layer at ${tide.effective} ft of sea level rise. Selected gauge ${station.name}. ${summaryLine}`}
-        </p>
-      </section>
-
       <TopBar
         stations={stations}
         spots={spots}
@@ -428,104 +396,139 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
         onNextKing={next ? () => goTo(next.t) : null}
       />
 
-      <div className="pointer-events-none absolute left-2 right-2 top-[58px] z-10 lg:left-3 lg:right-auto lg:top-[58px] lg:w-[318px]">
-        <div data-map-obstacle className="panel pointer-events-auto px-2.5 py-1.5 lg:px-3 lg:py-2.5">
-          <h1 className="text-[16px] lg:text-[20px]">SF Bay king tides and sea level rise</h1>
-          <p className="mt-1 hidden text-[14px] leading-snug lg:block" data-testid="summary-line">
-            {summaryLine}
+      {/* Header, main, aside and footer are siblings so each one is a page landmark. Every child is placed against the root, so main takes no space. */}
+      <main>
+        <section aria-label={ariaLabel} className="absolute inset-0">
+          {boot ? (
+            <MapStage
+              initialView={boot.view}
+              phone={boot.phone}
+              webgl2={boot.webgl2}
+              layers={layers}
+              waterFt={compare ? Math.max(ft, tide.effective) : tide.effective}
+              compare={compare}
+              compareFt={Math.max(ft, tide.effective)}
+              exaggeration={exaggeration}
+              onExaggeration={setExaggeration}
+              is3D={is3D}
+              on3D={setIs3D}
+              playhead={playhead}
+              getGauges={getGauges}
+              gaugesKey={gaugesKey}
+              callouts={callouts}
+              fly={fly}
+              ariaLabel={ariaLabel}
+              padding={padding}
+              controlsClassName="pointer-events-none absolute right-2 top-[106px] z-10 lg:top-auto lg:bottom-[calc(214px+var(--footer-h)+34px)] lg:right-[calc(340px+10px)]"
+              onView={onView}
+              onPickGauge={onStation}
+              onStage={() => undefined}
+            />
+          ) : null}
+          <p className="sr-only" aria-live="polite">
+            {`Water layer at ${tide.effective} ft of sea level rise. Selected gauge ${station.name}. ${summaryLine}`}
           </p>
+        </section>
+
+        <div className="pointer-events-none absolute left-2 right-2 top-[58px] z-10 lg:left-3 lg:right-auto lg:top-[58px] lg:w-[318px]">
+          <div data-map-obstacle className="panel pointer-events-auto px-2.5 py-1.5 lg:px-3 lg:py-2.5">
+            <h1 className="text-[16px] lg:text-[20px]">SF Bay king tides and sea level rise</h1>
+            <p className="mt-1 hidden text-[14px] leading-snug lg:block" data-testid="summary-line">
+              {summaryLine}
+            </p>
+          </div>
         </div>
-      </div>
 
-      <div data-map-obstacle className="absolute left-2 top-[106px] z-10 lg:left-3 lg:top-[192px]" data-testid="water-slider">
-        <WaterSlider
-          value={ft}
-          onChange={(v) => {
-            setFt(v);
-            setTouched(true);
-          }}
-          effective={tide.effective}
-          tideAddFt={tide.add}
-          kingEq={next ? futureTideEquivalent(next.aboveMhhw) : null}
-          kingLabel={next ? `Next king tide, ${futureTideEquivalent(next.aboveMhhw).toFixed(1)} ft above MHHW` : ""}
-          placesByFt={placeMap}
-          compare={compare}
-          onCompare={(on) => {
-            setCompare(on);
-            setTouched(true);
-            if (on && ft === 0) setFt(3);
-          }}
-          canCompare={boot?.webgl2 ?? true}
-        />
-      </div>
+        <div data-map-obstacle className="absolute left-2 top-[106px] z-10 lg:left-3 lg:top-[192px]" data-testid="water-slider">
+          <WaterSlider
+            value={ft}
+            onChange={(v) => {
+              setFt(v);
+              setTouched(true);
+            }}
+            effective={tide.effective}
+            tideAddFt={tide.add}
+            kingEq={next ? futureTideEquivalent(next.aboveMhhw) : null}
+            kingLabel={next ? `Next king tide, ${futureTideEquivalent(next.aboveMhhw).toFixed(1)} ft above MHHW` : ""}
+            placesByFt={placeMap}
+            compare={compare}
+            onCompare={(on) => {
+              setCompare(on);
+              setTouched(true);
+              if (on && ft === 0) setFt(3);
+            }}
+            canCompare={boot?.webgl2 ?? true}
+          />
+        </div>
 
-      {boot && !boot.webgl2 ? (
-        <p className="panel absolute right-2 top-[106px] z-10 max-w-[230px] px-2.5 py-1.5 text-[13px] lg:right-[calc(340px+12px)] lg:top-[58px]" data-testid="webgl-note">
-          This browser has no WebGL2, so the map is flat 2D with the same layers.
-        </p>
-      ) : null}
+        {boot && !boot.webgl2 ? (
+          <p className="panel absolute right-2 top-[106px] z-10 max-w-[230px] px-2.5 py-1.5 text-[13px] lg:right-[calc(340px+12px)] lg:top-[58px]" data-testid="webgl-note">
+            This browser has no WebGL2, so the map is flat 2D with the same layers.
+          </p>
+        ) : null}
+
+        <div className="absolute bottom-[var(--footer-h)] left-0 right-[340px] z-20 hidden h-[214px] flex-col gap-1.5 border-t border-line bg-panel px-3 py-2 lg:flex" data-testid="bottom-panel">
+          {layout === "desktop" ? (
+            <>
+              {scrubber("shrink-0")}
+              {charts("grid min-h-0 flex-1 grid-cols-[1.45fr_1.1fr_0.9fr] gap-4", 104)}
+            </>
+          ) : (
+            <>
+              <div className="skeleton h-[64px] w-full shrink-0" />
+              <div className="skeleton min-h-0 w-full flex-1" />
+            </>
+          )}
+        </div>
+
+        {/* Phone layout: the scrubber rides above the sheet. */}
+        <div className="absolute inset-x-0 z-20 border-t border-line bg-panel px-2 py-1.5 lg:hidden" style={{ bottom: sheetH }} data-testid="mobile-scrubber">
+          {layout === "phone" ? scrubber("") : <div className="skeleton h-[64px] w-full" />}
+        </div>
+        <BottomSheet
+          snap={snap}
+          onSnap={setSnap}
+          onHeight={setSheetH}
+          className="lg:hidden"
+          peek={
+            <div className="pb-2">
+              {next ? (
+                <p className="text-[15px] leading-snug">
+                  <span className="num font-medium">{fmtFt(next.height)}</span> at {station.name}, <span className="num">{fmtMonthDay(next.t)}, {fmtTime(next.t)}</span>. A normal high tide with <span className="num">{futureTideEquivalent(next.aboveMhhw).toFixed(1)} ft</span> of sea level rise.
+                </p>
+              ) : (
+                <p className="text-[15px]">NOAA predictions are unavailable right now.</p>
+              )}
+            </div>
+          }
+        >
+          {snap > 0 && layout === "phone" ? (
+            <>
+              <Tabs
+                tab={tab}
+                onTab={setTab}
+                idPrefix="sheet"
+              />
+              <div id="sheet-panel" role="tabpanel" aria-labelledby={`sheet-tab-${tab}`} className="min-h-0 flex-1 overflow-y-auto">
+                <div className="p-3">
+                  <div className="mb-3 lg:hidden">
+                    <DateRange from={from} onShiftWeek={shiftWeek} onNow={() => goTo(Date.now())} onNextKing={next ? () => goTo(next.t) : null} />
+                  </div>
+                  {panelBody(tab, true)}
+                </div>
+                <Footer />
+              </div>
+            </>
+          ) : null}
+        </BottomSheet>
+      </main>
 
       {/* Each device mounts only its own panels, right after hydration. The boxes are fixed-size, so nothing shifts. */}
       <Sidebar tab={tab} onTab={setTab} className="absolute bottom-[var(--footer-h)] right-0 top-12 hidden w-[340px] lg:flex">
         {layout === "desktop" ? panelBody(tab, false) : <div className="skeleton h-64 w-full" />}
       </Sidebar>
 
-      <div className="absolute bottom-[var(--footer-h)] left-0 right-[340px] z-20 hidden h-[214px] flex-col gap-1.5 border-t border-line bg-panel px-3 py-2 lg:flex" data-testid="bottom-panel">
-        {layout === "desktop" ? (
-          <>
-            {scrubber("shrink-0")}
-            {charts("grid min-h-0 flex-1 grid-cols-[1.45fr_1.1fr_0.9fr] gap-4", 104)}
-          </>
-        ) : (
-          <>
-            <div className="skeleton h-[64px] w-full shrink-0" />
-            <div className="skeleton min-h-0 w-full flex-1" />
-          </>
-        )}
-      </div>
-
       <Footer className="absolute inset-x-0 bottom-0 z-20 hidden h-[var(--footer-h)] lg:flex" />
-
-      {/* Phone layout: the scrubber rides above the sheet. */}
-      <div className="absolute inset-x-0 z-20 border-t border-line bg-panel px-2 py-1.5 lg:hidden" style={{ bottom: sheetH }} data-testid="mobile-scrubber">
-        {layout === "phone" ? scrubber("") : <div className="skeleton h-[64px] w-full" />}
-      </div>
-      <BottomSheet
-        snap={snap}
-        onSnap={setSnap}
-        onHeight={setSheetH}
-        className="lg:hidden"
-        peek={
-          <div className="pb-2">
-            {next ? (
-              <p className="text-[15px] leading-snug">
-                <span className="num font-medium">{fmtFt(next.height)}</span> at {station.name}, <span className="num">{fmtMonthDay(next.t)}, {fmtTime(next.t)}</span>. A normal high tide with <span className="num">{futureTideEquivalent(next.aboveMhhw).toFixed(1)} ft</span> of sea level rise.
-              </p>
-            ) : (
-              <p className="text-[15px]">NOAA predictions are unavailable right now.</p>
-            )}
-          </div>
-        }
-      >
-        {snap > 0 && layout === "phone" ? (
-          <>
-            <Tabs
-              tab={tab}
-              onTab={setTab}
-              idPrefix="sheet"
-            />
-            <div id="sheet-panel" role="tabpanel" aria-labelledby={`sheet-tab-${tab}`} className="min-h-0 flex-1 overflow-y-auto">
-              <div className="p-3">
-                <div className="mb-3 lg:hidden">
-                  <DateRange from={from} onShiftWeek={shiftWeek} onNow={() => goTo(Date.now())} onNextKing={next ? () => goTo(next.t) : null} />
-                </div>
-                {panelBody(tab, true)}
-              </div>
-              <Footer />
-            </div>
-          </>
-        ) : null}
-      </BottomSheet>
     </div>
   );
 }
