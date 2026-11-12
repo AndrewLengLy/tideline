@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { jsonLdHtml } from "@/lib/jsonld";
-import { AUTHOR_NAME, AUTHOR_URL, SITE_NAME, SITE_URL } from "@/lib/site";
+import { AUTHOR_ID, AUTHOR_NAME, AUTHOR_URL, SITE_NAME, SITE_URL } from "@/lib/site";
 import { plexMono, schibsted } from "./fonts";
 import "./globals.css";
 
@@ -34,7 +34,7 @@ const jsonLd = {
   applicationCategory: "ReferenceApplication",
   operatingSystem: "Web",
   isAccessibleForFree: true,
-  creator: { "@type": "Person", name: AUTHOR_NAME, url: AUTHOR_URL },
+  creator: { "@type": "Person", "@id": AUTHOR_ID, name: AUTHOR_NAME, url: AUTHOR_URL },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

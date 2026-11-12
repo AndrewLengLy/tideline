@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { fmtMonthDay } from "@/lib/format";
+import { AUTHOR_NAME, AUTHOR_URL } from "@/lib/site";
 import { addDays, dayStart } from "@/lib/time";
 import type { MapSpot, MapStation } from "@/lib/types";
 
@@ -64,9 +65,15 @@ export function TopBar({ stations, spots, stationId, onStation, onSpot, from, on
 
   return (
     <header className="absolute inset-x-0 top-0 z-30 flex h-[52px] items-center gap-2 border-b border-line bg-panel px-3 lg:h-12 lg:gap-3">
-      <Link href="/" className="text-[19px] font-bold leading-none tracking-tight text-ink no-underline">
-        Tideline
-      </Link>
+      <div className="flex shrink-0 flex-col">
+        <Link href="/" className="flex h-6 items-center text-[19px] font-bold leading-none tracking-tight text-ink no-underline lg:h-auto">
+          Tideline
+        </Link>
+        {/* The footer carries this credit from 1024px up. Below that it sits inside the closed sheet. */}
+        <a href={AUTHOR_URL} className="flex h-6 items-center whitespace-nowrap text-[11px] leading-none text-muted underline decoration-line underline-offset-2 hover:text-link lg:hidden">
+          Built by {AUTHOR_NAME}
+        </a>
+      </div>
       <span className="hidden h-5 w-px bg-line lg:block" aria-hidden />
       <label className="min-w-0 flex-1 lg:max-w-[230px] lg:flex-none">
         <span className="sr-only">Station or shoreline spot</span>

@@ -1,8 +1,10 @@
 export const SITE_URL = "https://tides.andrewlengly.com";
 export const SITE_NAME = "Tideline";
 export const REPO_URL = "https://github.com/AndrewLengLy/tideline";
-export const AUTHOR_NAME = "Andrew Leng Ly";
-export const AUTHOR_URL = "https://andrewlengly.com";
+/** Same name, address and Person id as the portfolio, so the credit and the JSON-LD point at one person. */
+export const AUTHOR_NAME = "Andrew Ly";
+export const AUTHOR_URL = "https://www.andrewlengly.com";
+export const AUTHOR_ID = `${AUTHOR_URL}/#person`;
 
 export const SAFETY_LINE = "For situational awareness only. Follow official alerts and evacuation orders.";
 
