@@ -1,20 +1,24 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fmtMonthDay, fmtTime, ft as fmtFt, vsHighTide } from "@/lib/format";
-import { futureTideEquivalent, kingTideSentence } from "@/lib/metrics/king-tides";
+import { fmtDayLabel, fmtMonthDay, fmtTime, ft as fmtFt, vsHighTide } from "@/lib/format";
+import { countingThreshold } from "@/lib/metrics/days-over";
+import { checkAge, PREDICTION_REFRESH_MS, PREDICTION_WARN_MS, type Freshness } from "@/lib/metrics/freshness";
+import { futureTideEquivalent, kingTideSentence, stationSentence } from "@/lib/metrics/king-tides";
 import { POSTER_DESKTOP, POSTER_PHONE } from "@/lib/poster";
 import { DEFAULT_STATION_ID, DEFAULT_VIEW, PHONE_VIEW } from "@/lib/site";
-import { addDays, DAY, dayStart, pacificDay } from "@/lib/time";
+import { addDays, DAY, dayStart, MINUTE, pacificDay } from "@/lib/time";
 import type { MapOverview, MapPlace, MapSpot, MapStation } from "@/lib/types";
 import { Footer } from "../Footer";
-import type { CalloutItem, GaugeDatum, ViewState } from "../map/engine";
+import type { CalloutItem, GaugeDatum, StackInput, StackMarker, ViewState } from "../map/engine";
 import { DEFAULT_LAYERS, type LayerId, type LayerSettings } from "../map/layers";
 import type { FlyTarget } from "../map/MapStage";
 import { Playhead, prefersReducedMotion, usePlayback, type Speed } from "../map/playhead";
 import { Scrubber, type ScrubberEvent } from "../map/Scrubber";
 import { levelAt, STEP_MS, useFrames } from "../map/useFrames";
+import { buildStack } from "../map/stack";
 import { readUrlState, writeUrlState } from "../map/url-state";
 import { WaterSlider } from "../map/WaterSlider";
 import { MiniCharts } from "./BottomPanel";
@@ -22,6 +26,7 @@ import { BottomSheet, PEEK_HEIGHT, type Snap } from "./BottomSheet";
 import { deriveKeyEvents, KeyEvents } from "./KeyEvents";
 import { LayerRows } from "./LayerRows";
 import { PlaceCheck, type Place } from "./PlaceCheck";
+import { StackLegend } from "./StackLegend";
 import { Sidebar, Tabs, type TabId } from "./Sidebar";
 import { StationSummary } from "./StationSummary";
 import { DateRange, TopBar } from "./TopBar";
@@ -41,6 +46,16 @@ interface Props {
   spots: MapSpot[];
   places: MapPlace[];
   initialNow: number;
+}
+
+type TideState = { effective: number; level: number; add: number };
+
+/** The water level the map draws: the slider plus any tide over an average high tide at the selected gauge. */
+function tideFor(prev: TideState, ft: number, followTide: boolean, above: number | null): TideState {
+  const add = followTide && above !== null ? Math.max(0, above) : 0;
+  const level = Math.max(0, Math.min(10, Math.round((ft + add) * 20) / 20));
+  const roundedAdd = Math.round(add * 10) / 10;
+  return prev.level === level && prev.add === roundedAdd ? prev : { effective: Math.round(level), level, add: roundedAdd };
 }
 
 function hasWebgl2(): boolean {
@@ -74,9 +89,13 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
   const [touched, setTouched] = useState(false);
   const [sliderTip, setSliderTip] = useState(false);
   const [layout, setLayout] = useState<"pending" | "phone" | "desktop">("pending");
-  const [tide, setTide] = useState({ effective: 0, level: 0, add: 0 });
+  const [tide, setTide] = useState<TideState>({ effective: 0, level: 0, add: 0 });
   const [wetBuildings, setWetBuildings] = useState<{ n: number; ft: number } | null>(null);
+  const [apart, setApart] = useState(false);
+  // Predictions printed on a cached copy of this page can be days old after a quiet stretch.
+  const [prediction, setPrediction] = useState<{ retried: boolean; state: Freshness }>({ retried: false, state: "fresh" });
   const viewRef = useRef<ViewState | null>(null);
+  const router = useRouter();
 
   const playhead = useMemo(() => new Playhead(), []);
   const stationIndex = useMemo(() => new Map(stations.map((s) => [s.id, s])), [stations]);
@@ -139,7 +158,9 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
     else if (phone) setExaggeration(2);
     if (u.ex !== null) setTouched(true);
     if (u.compare) setCompare(true);
-    if (u.t || u.ft !== null || u.view.lat !== undefined) setTouched(true);
+    if (u.apart && !phone) setApart(true);
+    if (u.t || u.ft !== null || u.view.lat !== undefined || u.apart) setTouched(true);
+    setPrediction({ retried: false, state: checkAge(overview.asOf, clock, false, PREDICTION_REFRESH_MS, PREDICTION_WARN_MS) });
     /* eslint-enable react-hooks/set-state-in-effect */
     viewRef.current = view;
     // The map waits for the first interaction, or a short pause after load, so reading comes first.
@@ -186,21 +207,31 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
   useEffect(() => {
     const update = () => {
       const { ft: f, followTide: follow, selectedLevel: read } = followRef.current;
-      const above = read();
-      const add = follow && above !== null ? Math.max(0, above) : 0;
-      const level = Math.max(0, Math.min(10, Math.round((f + add) * 20) / 20));
-      const effective = Math.round(level);
-      const roundedAdd = Math.round(add * 10) / 10;
-      setTide((prev) => (prev.level === level && prev.add === roundedAdd ? prev : { effective, level, add: roundedAdd }));
+      setTide((prev) => tideFor(prev, f, follow, read()));
     };
     update();
     return playhead.subscribe(update);
   }, [playhead, ft, followTide, selectedLevel]);
 
+  // A slider step sets the water and its tide in one update, so the page renders once per step.
+  const onSliderFt = useCallback(
+    (v: number) => {
+      setFt(v);
+      setTide((prev) => tideFor(prev, v, followTide, selectedLevel()));
+      setTouched(true);
+      setSliderTip(true);
+    },
+    [followTide, selectedLevel],
+  );
+
+  // Taking the map apart needs WebGL2 and a desktop screen. Phones get a flat legend in the sheet.
+  const canApart = !!boot && boot.webgl2 && !boot.phone && !compare;
+  const apartOn = apart && canApart;
+
   // Address bar. Stays clean until the visitor changes something, then every view is shareable.
   const writeUrl = useCallback(() => {
-    writeUrlState({ t: dayStart(from) + Math.round(playhead.getPos()) * STEP_MS, view: viewRef.current, station: stationId, ft, compare, pin: place, ex: exaggeration });
-  }, [from, playhead, stationId, ft, compare, place, exaggeration]);
+    writeUrlState({ t: dayStart(from) + Math.round(playhead.getPos()) * STEP_MS, view: viewRef.current, station: stationId, ft, compare, pin: place, ex: exaggeration, apart: boot ? apartOn : apart });
+  }, [from, playhead, stationId, ft, compare, place, exaggeration, apartOn, apart, boot]);
   const touchedRef = useRef(touched);
   const writeUrlRef = useRef(writeUrl);
   useEffect(() => {
@@ -217,6 +248,43 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
       }),
     [playhead],
   );
+
+  // An old prediction on first load came from a cached copy, and that request already set off a
+  // rebuild. After a short wait the page asks once more. If the answer is still old, the panel
+  // says how old.
+  const asOfRef = useRef(overview.asOf);
+  useEffect(() => {
+    if (asOfRef.current === overview.asOf) return;
+    asOfRef.current = overview.asOf;
+    setPrediction((p) => ({ retried: p.retried, state: checkAge(overview.asOf, Date.now(), p.retried, PREDICTION_REFRESH_MS, PREDICTION_WARN_MS) }));
+  }, [overview.asOf]);
+  useEffect(() => {
+    if (prediction.state !== "updating") return;
+    const t = prediction.retried
+      ? setTimeout(() => setPrediction({ retried: true, state: checkAge(asOfRef.current, Date.now(), true, PREDICTION_REFRESH_MS, PREDICTION_WARN_MS) }), 15_000)
+      : setTimeout(() => {
+          setPrediction({ retried: true, state: "updating" });
+          router.refresh();
+        }, 4000);
+    return () => clearTimeout(t);
+  }, [prediction, router]);
+
+  // The exploded view: average high tide, the next king tide, and the slider, merged where they meet.
+  const slabs = useMemo(() => buildStack(ft, next), [ft, next]);
+  const stack = useMemo<StackInput>(() => ({ key: station.id, lng: station.lng, lat: station.lat, slabs, sliderFt: ft }), [station, slabs, ft]);
+  const getStackMarker = useCallback((): StackMarker | null => {
+    const pos = playhead.getPos();
+    const l = levelAt(frames, stationId, pos);
+    if (!l) return null;
+    const t = frames.t0 + pos * STEP_MS;
+    const when = Math.abs(t - Date.now()) < 10 * MINUTE ? "Now" : `${fmtDayLabel(t)}, ${fmtTime(t)}`;
+    return { levelAboveMhhw: l.value - (stationById(stationId)?.datums.mhhw ?? 0), label: `${when}: ${l.value.toFixed(1)} ft` };
+  }, [frames, stationId, playhead, stationById]);
+  const onApart = useCallback((on: boolean) => {
+    setApart(on);
+    if (on) setIs3D(true);
+    setTouched(true);
+  }, []);
 
   const getGauges = useCallback((): GaugeDatum[] => {
     const out: GaugeDatum[] = [];
@@ -296,6 +364,9 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
     [playhead],
   );
 
+  const goNow = useCallback(() => goTo(Date.now()), [goTo]);
+  const goNextKing = useMemo(() => (next ? () => goTo(next.t) : null), [next, goTo]);
+
   const shiftWeek = useCallback(
     (days: number) => {
       setFrom((d) => {
@@ -346,9 +417,9 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
     [phone],
   );
 
+  const countingLine = useMemo(() => countingThreshold(station.thresholds), [station]);
   const predicted = frames.predicted.get(station.id) ?? null;
   const observedSeries = frames.observed.get(station.id);
-  const thresholdLabel = stationOverview?.thresholdKind === "action" ? "action level" : "minor threshold";
 
   const readout = useCallback(
     (i: number) => {
@@ -356,14 +427,16 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
       if (!l) return "";
       const s = stationById(stationId);
       const above = l.value - (s?.datums.mhhw ?? 0);
-      return `${s?.name} ${fmtFt(l.value)} MLLW, ${vsHighTide(above)}, ${l.kind}`;
+      return `${s?.name} ${fmtFt(l.value)} above average low tide, ${vsHighTide(above)}, ${l.kind}`;
     },
     [frames, stationId, stationById],
   );
 
   const ariaLabel = `3D map of San Francisco Bay with NOAA sea level rise shown at ${tide.effective} ft and ${stations.length} tide gauges`;
 
-  const summaryLine = next ? kingTideSentence(next, now) : "NOAA predictions are unavailable right now. The map still loads.";
+  const kingLine = next ? kingTideSentence(next, now) : "NOAA predictions are unavailable right now. The map still loads.";
+  const stationLine = stationOverview ? stationSentence(station.name, stationOverview.dailyMax, stationOverview.dailyStart, station.datums.mhhw, now) : null;
+  const summaryLine = stationLine ? `${stationLine} ${kingLine}` : kingLine;
 
   const scrubber = (extra: string) => (
     <Scrubber
@@ -399,10 +472,13 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
       residual={observedSeries?.residual ?? null}
       surge={observedSeries?.surge ?? null}
       observedAsOf={observedSeries?.asOf ?? null}
+      observedFreshness={observedSeries?.freshness ?? null}
       king={next}
-      daysOver={stationOverview?.daysOver ?? []}
-      thresholdLabel={thresholdLabel}
-      overviewAsOf={overview.asOf}
+      dailyMax={stationOverview?.dailyMax ?? []}
+      dailyStart={stationOverview?.dailyStart ?? ""}
+      line={countingLine}
+      addFt={ft}
+      now={now}
       playhead={playhead}
       chartHeight={chartHeight}
       layoutClass={layoutClass}
@@ -436,7 +512,17 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
     if (t === "visit") return <GoSeeIt station={station} next={next} spots={spots} onSpot={onSpot} onShowTide={goTo} />;
     return (
       <div className="space-y-4">
-        <StationSummary station={station} overview={stationOverview} now={now} asOf={overview.asOf} surge={observedSeries?.surge ?? null} surgeAsOf={observedSeries?.asOf ?? null} />
+        {boot && !canApart && !compare ? <StackLegend slabs={slabs} stationName={station.name} /> : null}
+        <StationSummary
+          station={station}
+          overview={stationOverview}
+          now={now}
+          asOf={overview.asOf}
+          predictionFreshness={prediction.state}
+          surge={observedSeries?.surge ?? null}
+          surgeAsOf={observedSeries?.asOf ?? null}
+          surgeFreshness={observedSeries?.freshness ?? null}
+        />
         <KeyEvents events={keyEvents} onPick={onKeyEvent} activeIndex={null} />
         {mobile ? charts("space-y-4 border-t border-line pt-3", 110) : null}
       </div>
@@ -466,7 +552,15 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
             }}
             onWetBuildings={setWetBuildings}
             is3D={is3D}
-            on3D={setIs3D}
+            on3D={(on) => {
+              setIs3D(on);
+              if (!on) setApart(false);
+            }}
+            apart={apartOn}
+            canApart={canApart}
+            onApart={onApart}
+            stack={stack}
+            getStackMarker={getStackMarker}
             playhead={playhead}
             getGauges={getGauges}
             gaugesKey={gaugesKey}
@@ -495,42 +589,40 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
         onSpot={onSpot}
         from={from}
         onShiftWeek={shiftWeek}
-        onNow={() => goTo(Date.now())}
-        onNextKing={next ? () => goTo(next.t) : null}
+        onNow={goNow}
+        onNextKing={goNextKing}
       />
 
-      <div className="pointer-events-none absolute left-2 right-2 top-[58px] z-10 lg:left-3 lg:right-auto lg:top-[58px] lg:w-[318px]">
-        <div data-map-obstacle className="panel pointer-events-auto px-2.5 py-1.5 lg:px-3 lg:py-2.5">
+      {/* The header card and the slider share one column, so a longer header pushes the slider down. */}
+      <div className="pointer-events-none absolute left-2 right-2 top-[58px] z-10 flex flex-col items-start gap-2 lg:left-3 lg:right-auto">
+        <div data-map-obstacle className="panel pointer-events-auto w-full px-2.5 py-1.5 lg:w-[318px] lg:px-3 lg:py-2.5">
           <h1 className="text-[16px] lg:text-[20px]">SF Bay king tides and sea level rise</h1>
-          <p className="mt-1 hidden text-[14px] leading-snug lg:block" data-testid="summary-line">
+          <p className="mt-1 hidden text-[13.5px] leading-snug lg:block" data-testid="summary-line">
             {summaryLine}
           </p>
         </div>
-      </div>
 
-      <div data-map-obstacle className="absolute left-2 top-[106px] z-10 lg:left-3 lg:top-[192px]" data-testid="water-slider">
-        <WaterSlider
-          value={ft}
-          onChange={(v) => {
-            setFt(v);
-            setTouched(true);
-            setSliderTip(true);
-          }}
-          showTip={sliderTip}
-          effective={tide.effective}
-          tideAddFt={tide.add}
-          kingEq={next ? futureTideEquivalent(next.aboveMhhw) : null}
-          kingLabel={next ? `Next king tide, ${futureTideEquivalent(next.aboveMhhw).toFixed(1)} ft above MHHW` : ""}
-          placesByFt={placeMap}
-          compare={compare}
-          onCompare={(on) => {
-            setCompare(on);
-            setTouched(true);
-            if (on && ft === 0) setFt(3);
-          }}
-          canCompare={boot?.webgl2 ?? true}
-          wetBuildings={wetBuildings}
-        />
+        <div data-map-obstacle className="pointer-events-auto" data-testid="water-slider">
+          <WaterSlider
+            value={ft}
+            onChange={onSliderFt}
+            showTip={sliderTip}
+            effective={tide.effective}
+            tideAddFt={tide.add}
+            kingEq={next ? futureTideEquivalent(next.aboveMhhw) : null}
+            kingLabel={next ? `Next king tide, ${futureTideEquivalent(next.aboveMhhw).toFixed(1)} ft above an average high tide` : ""}
+            placesByFt={placeMap}
+            compare={compare}
+            onCompare={(on) => {
+              setCompare(on);
+              if (on) setApart(false);
+              setTouched(true);
+              if (on && ft === 0) setFt(3);
+            }}
+            canCompare={boot?.webgl2 ?? true}
+            wetBuildings={wetBuildings}
+          />
+        </div>
       </div>
 
       {boot && !boot.webgl2 ? (
@@ -548,7 +640,7 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
         {layout === "desktop" ? (
           <>
             {scrubber("shrink-0")}
-            {charts("grid min-h-0 flex-1 grid-cols-[1.45fr_1.1fr_0.9fr] gap-4", 104)}
+            {charts("grid min-h-0 flex-1 grid-cols-[1.2fr_0.85fr_1.35fr] gap-4", 104)}
           </>
         ) : (
           <>
@@ -573,7 +665,7 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
           <div className="pb-2">
             {next ? (
               <p className="text-[15px] leading-snug">
-                <span className="num font-medium">{fmtFt(next.height)}</span> at {station.name}, <span className="num">{fmtMonthDay(next.t)}, {fmtTime(next.t)}</span>. A normal high tide with <span className="num">{futureTideEquivalent(next.aboveMhhw).toFixed(1)} ft</span> of sea level rise.
+                <span className="num font-medium">{fmtFt(next.height)}</span> at {station.name}, <span className="num">{fmtMonthDay(next.t)}, {fmtTime(next.t)}</span>. An ordinary high tide with <span className="num">{futureTideEquivalent(next.aboveMhhw).toFixed(1)} ft</span> of sea level rise.
               </p>
             ) : (
               <p className="text-[15px]">NOAA predictions are unavailable right now.</p>
@@ -591,7 +683,7 @@ export function MapApp({ overview, stations, spots, places, initialNow }: Props)
             <div id="sheet-panel" role="tabpanel" aria-labelledby={`sheet-tab-${tab}`} className="min-h-0 flex-1 overflow-y-auto">
               <div className="p-3">
                 <div className="mb-3 lg:hidden">
-                  <DateRange from={from} onShiftWeek={shiftWeek} onNow={() => goTo(Date.now())} onNextKing={next ? () => goTo(next.t) : null} />
+                  <DateRange from={from} onShiftWeek={shiftWeek} onNow={goNow} onNextKing={goNextKing} />
                 </div>
                 {panelBody(tab, true)}
               </div>

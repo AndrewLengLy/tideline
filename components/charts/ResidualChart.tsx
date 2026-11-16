@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { scaleLinear } from "d3-scale";
 import { area } from "d3-shape";
 import { fmtShortDay } from "@/lib/format";
@@ -27,8 +27,8 @@ function Cursor({ playhead, x, top, bottom }: { playhead: Playhead; x: (i: numbe
   return <line x1={x(i)} x2={x(i)} y1={top} y2={bottom} stroke="#0d2230" strokeWidth={1} />;
 }
 
-/** Observed minus predicted, in feet. Above zero, water runs higher than the tide table says. */
-export function ResidualChart({ t0, stepMs, count, residual, playhead, height, stationName, initialWidth, compact }: Props) {
+/** Storm push (the residual): measured minus predicted, in feet. Above zero, water runs higher than the tide table says. */
+export const ResidualChart = memo(function ResidualChart({ t0, stepMs, count, residual, playhead, height, stationName, initialWidth, compact }: Props) {
   const margin = compact ? { l: 26, r: 8, t: 4, b: 15 } : { l: 34, r: 12, t: 8, b: 20 };
   const peak = useMemo(() => {
     let m = 0.25;
@@ -48,7 +48,7 @@ export function ResidualChart({ t0, stepMs, count, residual, playhead, height, s
   }, [t0, stepMs, count]);
 
   return (
-    <ChartFrame height={height} label={`${stationName} residual: observed minus predicted water level in feet.`} initialWidth={initialWidth} className="w-full">
+    <ChartFrame height={height} label={`${stationName} storm push: measured minus predicted water level in feet.`} initialWidth={initialWidth} className="w-full">
       {({ w, h }) => {
         const x = scaleLinear().domain([0, Math.max(1, count - 1)]).range([margin.l, w - margin.r]);
         const y = scaleLinear().domain([-peak, peak]).range([h - margin.b, margin.t]);
@@ -94,4 +94,4 @@ export function ResidualChart({ t0, stepMs, count, residual, playhead, height, s
       }}
     </ChartFrame>
   );
-}
+});

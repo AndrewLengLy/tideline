@@ -10,6 +10,10 @@ interface Props {
   webgl2: boolean;
   exaggeration: number;
   onExaggeration: (x: number) => void;
+  /** Desktop with WebGL2, outside compare mode. Phones get a flat legend in the sheet. */
+  canApart: boolean;
+  apart: boolean;
+  onApart: (on: boolean) => void;
 }
 
 /** Terrain height steps. Low shoreline reads best at 3x, the default. */
@@ -22,10 +26,15 @@ export function nextExaggeration(x: number): number {
 
 const BTN = "flex h-11 min-w-11 items-center justify-center bg-panel text-ink hover:bg-sunk md:h-9 md:min-w-9";
 
-/** Bottom-right cluster: 2D or 3D, compass, and fullscreen. */
-export function MapControls({ is3D, on3D, bearing, onResetBearing, onFullscreen, isFullscreen, webgl2, exaggeration, onExaggeration }: Props) {
+/** Bottom-right cluster: take apart, 2D or 3D, terrain height, compass, and fullscreen. */
+export function MapControls({ is3D, on3D, bearing, onResetBearing, onFullscreen, isFullscreen, webgl2, exaggeration, onExaggeration, canApart, apart, onApart }: Props) {
   return (
     <div className="pointer-events-auto flex items-center gap-1.5">
+      {canApart ? (
+        <button type="button" className={`${BTN} rounded border px-2.5 text-[13px] ${apart ? "border-ink !bg-ink !text-panel" : "border-line"}`} onClick={() => onApart(!apart)} data-testid="apart-toggle">
+          {apart ? "Put it back together" : "Take it apart"}
+        </button>
+      ) : null}
       {webgl2 ? (
         <div className="flex overflow-hidden rounded border border-line" role="group" aria-label="Map dimension">
           <button type="button" className={`${BTN} num text-[13px] ${!is3D ? "!bg-ink !text-panel" : ""}`} onClick={() => on3D(false)} aria-pressed={!is3D}>

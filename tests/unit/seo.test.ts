@@ -17,6 +17,8 @@ const worst = (stationId: string): StationOverview => {
     thresholdKind: "minor",
     thresholdFt: 1.9,
     highCount: 700,
+    dailyStart: "2026-11-16",
+    dailyMax: [],
   };
 };
 

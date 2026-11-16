@@ -18,13 +18,15 @@ export interface FetchOpts {
   /** Seconds in the Next.js data cache. Ignored outside Next.js. */
   revalidate?: number;
   tags?: string[];
+  /** "no-store" skips the Next.js data cache, which would otherwise serve a stale copy first. Overrides revalidate and tags. */
+  cache?: "no-store";
   timeoutMs?: number;
   retries?: number;
 }
 
 /** Fetches JSON and validates it. NOAA can answer 200 with {"error":...}, and that case throws too. */
 export async function getJson<S extends z.ZodType>(url: string, schema: S, opts: FetchOpts): Promise<z.output<S>> {
-  const { source, revalidate, tags, timeoutMs = 25_000, retries = 2 } = opts;
+  const { source, revalidate, tags, cache, timeoutMs = 25_000, retries = 2 } = opts;
   let last: unknown;
   for (let attempt = 0; attempt <= retries; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 400 * attempt));
@@ -33,7 +35,8 @@ export async function getJson<S extends z.ZodType>(url: string, schema: S, opts:
         headers: { "User-Agent": UA, Accept: "application/json" },
         signal: AbortSignal.timeout(timeoutMs),
       };
-      if (revalidate !== undefined || tags) init.next = { revalidate, tags };
+      if (cache) init.cache = cache;
+      else if (revalidate !== undefined || tags) init.next = { revalidate, tags };
       const res = await fetch(url, init);
       if (!res.ok) throw new SourceError(source, `HTTP ${res.status}`, res.status);
       const json: unknown = await res.json();

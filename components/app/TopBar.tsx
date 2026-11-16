@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { memo, useState } from "react";
 import { fmtMonthDay } from "@/lib/format";
 import { addDays, dayStart } from "@/lib/time";
 import type { MapSpot, MapStation } from "@/lib/types";
@@ -47,7 +47,7 @@ export function DateRange({ from, onShiftWeek, onNow, onNextKing, className = ""
   );
 }
 
-export function TopBar({ stations, spots, stationId, onStation, onSpot, from, onShiftWeek, onNow, onNextKing }: Props) {
+export const TopBar = memo(function TopBar({ stations, spots, stationId, onStation, onSpot, from, onShiftWeek, onNow, onNextKing }: Props) {
   const [copied, setCopied] = useState(false);
 
   const share = async () => {
@@ -118,4 +118,4 @@ export function TopBar({ stations, spots, stationId, onStation, onSpot, from, on
       </button>
     </header>
   );
-}
+})

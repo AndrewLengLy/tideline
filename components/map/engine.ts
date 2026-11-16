@@ -4,14 +4,17 @@ import maplibregl from "maplibre-gl";
 import type { GeoJSONSource, Map as MLMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MapboxOverlay } from "@deck.gl/mapbox";
-import { ColumnLayer, IconLayer, TextLayer } from "@deck.gl/layers";
-import { COLOR, hexToRgb } from "@/lib/colors";
+import type { Layer } from "@deck.gl/core";
+import { TileLayer, type GeoBoundingBox } from "@deck.gl/geo-layers";
+import { BitmapLayer, ColumnLayer, IconLayer, LineLayer, PathLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
+import { COLOR, hexToRgb, stepColor } from "@/lib/colors";
 import { vsHighTide } from "@/lib/format";
 import { SLR_MAX_ZOOM } from "@/lib/sources/slr";
 import { DEFAULT_LAYERS, type LayerSettings } from "./layers";
-import { registerProtocols, type SlrPaint } from "./protocols";
+import { registerProtocols, slabTile, type LngLatBox, type SlrPaint } from "./protocols";
 import { baseStyle, BEFORE_BUILDINGS, BEFORE_FLOOD_LAYERS, BEFORE_WATER_LAYERS } from "./style";
 import { classAtPoint } from "./slr-cache";
+import { markerZ, SLAB_GAP_M, type Slab } from "./stack";
 import { footprints, wetCollection, type FootprintFeature } from "./wet-buildings";
 
 /** The poster stays up until imagery paints. After this long the canvas shows whatever has arrived. */
@@ -48,6 +51,24 @@ export interface CalloutItem {
   priority: number;
   kind: "king" | "spot";
   href?: string;
+}
+
+/** The exploded view's slabs for the selected station. */
+export interface StackInput {
+  /** Station id. The selected gauge's staff steps aside while the stack is up. */
+  key: string;
+  lng: number;
+  lat: number;
+  /** Bottom to top. */
+  slabs: Slab[];
+  /** The slider foot, which the wet buildings test uses while the stack is up. */
+  sliderFt: number;
+}
+
+/** The tide at the scrubber time, drawn as a dot on the stack. */
+export interface StackMarker {
+  levelAboveMhhw: number;
+  label: string;
 }
 
 export interface EngineOptions {
@@ -124,6 +145,23 @@ const HILLSHADE_SRC = "hillshade-dem";
 /** Ground meters per CSS pixel at a latitude and zoom. */
 const metersPerPixel = (lat: number, zoom: number) => (156543.03392 * Math.cos((lat * Math.PI) / 180)) / 2 ** zoom / 2;
 
+/** Taking the map apart eases the camera and the slabs over this long. */
+const APART_MS = 1200;
+const APART_PITCH = 60;
+/** Each slab is a square this many meters from the station to each side. */
+const STACK_HALF_M = 6000;
+/** The merged slab's rim pulses this long when it first appears. */
+const PULSE_MS = 2400;
+const PULSE_PERIOD_MS = 800;
+
+function stackBox(lng: number, lat: number): LngLatBox {
+  const dLat = STACK_HALF_M / 110540;
+  const dLng = STACK_HALF_M / (111320 * Math.cos((lat * Math.PI) / 180));
+  return { west: lng - dLng, south: lat - dLat, east: lng + dLng, north: lat + dLat };
+}
+
+const easeInOutCubic = (p: number) => (p < 0.5 ? 4 * p * p * p : 1 - (-2 * p + 2) ** 3 / 2);
+
 export class TideEngine {
   readonly map: MLMap;
   private overlay: MapboxOverlay | null = null;
@@ -150,6 +188,19 @@ export class TideEngine {
   private wetTimer?: ReturnType<typeof setTimeout>;
   private wetSeq = 0;
   private imageryFails = 0;
+  private stack: StackInput | null = null;
+  private stackMarker: StackMarker | null = null;
+  /** 0 is the map together, 1 is fully apart. It eases between the two. */
+  private apartT = 0;
+  private apartTarget = 0;
+  private apartRaf = 0;
+  private preApartView: ViewState | null = null;
+  private pulseStart = 0;
+  private pulseRaf = 0;
+  private pulsedKey = "";
+  private stackEl: HTMLDivElement | null = null;
+  private stackCards = new Map<string, HTMLDivElement>();
+  private stackMarkerEl: HTMLDivElement | null = null;
 
   constructor(opts: EngineOptions) {
     this.opts = opts;
@@ -207,6 +258,8 @@ export class TideEngine {
       this.opts.onStage?.("base");
       this.setWater(this.waterTarget, true);
       this.renderFlatGauges();
+      // A shared link with ?view=apart asked before the map could move. It jumps straight there.
+      if (this.apartTarget) this.runApart(1, 0);
       const idle = window.requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 200));
       idle(() => this.loadHeavyLayers());
     });
@@ -246,6 +299,10 @@ export class TideEngine {
       // Idle can fire before the imagery source exists, when the flat basemap alone has finished.
       if (this.heavyLoaded) this.reveal();
       this.scheduleCallouts();
+    });
+    // deck.gl has drawn the frame by now, so its camera matches the map and the cards land on their slabs.
+    this.map.on("render", () => {
+      if (this.apartT > 0 || this.stackEl?.dataset.shown === "true") this.layoutStack();
     });
   }
 
@@ -447,7 +504,8 @@ export class TideEngine {
     const f = lo >= 10 ? 0 : level - lo;
     const hi = Math.min(10, lo + 1);
     this.ensureAnchor();
-    const fillOn = this.layers.slr.on ? this.layers.slr.opacity : 0;
+    // While the stack is up, the draped water fades out so the same water never shows twice.
+    const fillOn = (this.layers.slr.on ? this.layers.slr.opacity : 0) * (1 - this.apartT);
     const want = new Map<string, number>();
     want.set(`slr-fill-${lo}`, fillOn * WATER_OPACITY);
     want.set(`slr-edge-${lo}`, fillOn * (1 - f));
@@ -580,7 +638,8 @@ export class TideEngine {
     const report = this.opts.onWetBuildings;
     if (!report || this.destroyed) return;
     const src = m.getSource(WET_SRC) as GeoJSONSource | undefined;
-    const ft = Math.floor(this.waterTarget);
+    // Taken apart, the buildings stay on the ground and keep the slider's step, which the top slab covers.
+    const ft = this.apartTarget && this.stack ? this.stack.sliderFt : Math.floor(this.waterTarget);
     const minZoom = this.opts.phone ? 15.5 : 15;
     const seq = ++this.wetSeq;
     if (!src || !m.getLayer("building") || !this.threeD || !this.layers.buildings.on || ft < 1 || m.getZoom() < minZoom) {
@@ -600,11 +659,12 @@ export class TideEngine {
     this.map.easeTo({ bearing: 0, duration: this.opts.reducedMotion ? 0 : 300 });
   }
 
-  /** Flies to a place over 1.2 s and ends pitched at 60 facing the water. */
+  /** Flies to a place over 1.2 s and ends pitched at 60 facing the water. Taken apart, it stays far enough out to see the whole stack. */
   flyTo(lng: number, lat: number, facing: number, zoom = 13.4) {
     this.map.flyTo({
       center: [lng, lat],
-      zoom,
+      zoom: this.apartTarget ? Math.min(zoom, this.stackFitZoom()) : zoom,
+      ...(this.apartTarget ? { offset: this.stackOffset() } : {}),
       pitch: this.threeD ? 60 : 0,
       bearing: this.threeD ? facing : 0,
       duration: this.opts.reducedMotion ? 0 : 1200,
@@ -673,7 +733,9 @@ export class TideEngine {
     const pxPerFt = (this.opts.phone ? 8.5 : 12) * (this.threeD ? this.exaggeration / 3 : 1);
     const scale = pxPerFt * mpp;
     const radius = (this.opts.phone ? 5.5 : 7) * mpp;
-    const data = on && this.threeD ? this.gauges : [];
+    // Taken apart, the selected gauge's staff steps aside for the stack and its guide lines.
+    const stackId = this.apartT > 0 && this.stack ? this.stack.key : null;
+    const data = on && this.threeD ? this.gauges.filter((g) => g.id !== stackId) : [];
 
     const base = (d: GaugeDatum) => this.groundZ(d.lng, d.lat);
     const mhhwZ = (d: GaugeDatum) => base(d) + PEDESTAL_FT * scale;
@@ -819,8 +881,359 @@ export class TideEngine {
           backgroundPadding: [5, 2, 5, 2],
           updateTriggers: { getSize: [this.map.getZoom(), this.map.getPitch(), this.map.getBearing(), lat], getPixelOffset: [this.map.getZoom(), this.map.getPitch()], getText: [trigger, data.map((d) => d.selected).join()], getColor: [trigger], getBorderColor: [data.map((d) => d.selected).join()], getPosition: viewKey },
         }),
+        ...this.stackLayers(),
       ],
     });
+  }
+
+  // Exploded view ----------------------------------------------------------
+  //
+  // The water lifts off the ground as see-through slabs, one per step, separated by
+  // apart x 900 m x terrain exaggeration. Each slab is a square around the selected station,
+  // painted from the same NOAA tiles as the draped water. A card on the left names each slab, and
+  // thin guide lines drop from each card to the ground at the station.
+
+  /** Height of slab i in meters at the current separation. */
+  private slabZ(i: number): number {
+    return (i + 1) * this.apartT * SLAB_GAP_M * this.exaggeration;
+  }
+
+  /** The zoom that keeps the whole stack below the camera at pitch 60, with room above the top slab. */
+  private stackFitZoom(): number {
+    const s = this.stack;
+    if (!s) return this.map.getZoom();
+    const topZ = s.slabs.length * SLAB_GAP_M * this.exaggeration;
+    // MapLibre's camera sits 1.5 viewport heights from the center at its default field of view.
+    const distPx = 1.5 * (this.map.getCanvas().clientHeight || 800);
+    const mpp = (topZ * 1.9) / (distPx * Math.cos((APART_PITCH * Math.PI) / 180));
+    return Math.log2((156543.03392 * Math.cos((s.lat * Math.PI) / 180)) / (2 * mpp));
+  }
+
+  /** Taken apart, the station sits right of center, which leaves room for the cards on its left. */
+  private stackOffset(): [number, number] {
+    return [Math.round(Math.min(180, this.map.getCanvas().clientWidth * 0.14)), 0];
+  }
+
+  /** 0 to 1 while the merged rim pulses, 0 after. */
+  private pulseLevel(now = performance.now()): number {
+    const t = now - this.pulseStart;
+    if (!this.pulseStart || t > PULSE_MS || this.opts.reducedMotion) return 0;
+    return 0.5 - 0.5 * Math.cos((2 * Math.PI * t) / PULSE_PERIOD_MS);
+  }
+
+  private maybePulse() {
+    const s = this.stack;
+    const merged = s?.slabs.find((x) => x.kind === "merged");
+    if (!s || !merged || this.apartTarget !== 1 || this.apartT < 0.99) return;
+    const key = `${s.key}:${merged.ft}`;
+    if (key === this.pulsedKey) return;
+    this.pulsedKey = key;
+    this.pulseStart = performance.now();
+    const card = this.stackCards.get("merged");
+    if (card) {
+      card.dataset.pulse = "false";
+      void card.offsetWidth;
+      card.dataset.pulse = "true";
+    }
+    if (this.opts.reducedMotion) return;
+    cancelAnimationFrame(this.pulseRaf);
+    const tick = (now: number) => {
+      this.renderDeck();
+      this.pulseRaf = now - this.pulseStart < PULSE_MS && !this.destroyed ? requestAnimationFrame(tick) : 0;
+    };
+    this.pulseRaf = requestAnimationFrame(tick);
+  }
+
+  private stackLayers(): Layer[] {
+    const s = this.stack;
+    if (!s || this.apartT <= 0.001 || !this.threeD || !this.overlay) return [];
+    const box = stackBox(s.lng, s.lat);
+    const n = s.slabs.length;
+    const zs = s.slabs.map((_, i) => this.slabZ(i));
+    const topZ = zs[n - 1] ?? 0;
+    const fade = Math.min(1, this.apartT * 2.5);
+    const alpha = 0.9 * fade;
+    const pulse = this.pulseLevel();
+    const rim = (z: number): [number, number, number][] => [
+      [box.west, box.south, z],
+      [box.east, box.south, z],
+      [box.east, box.north, z],
+      [box.west, box.north, z],
+      [box.west, box.south, z],
+    ];
+    const indexed = s.slabs.map((slab, i) => ({ slab, i }));
+    const layers: Layer[] = s.slabs.map(
+      (slab, i) =>
+        new TileLayer<ImageBitmap | null>({
+          id: `stack-slab-${i}`,
+          data: null,
+          getTileData: ({ index, signal }) => slabTile(slab.ft, index.z, index.y, index.x, box, signal),
+          tileSize: 256,
+          minZoom: 6,
+          maxZoom: SLR_MAX_ZOOM,
+          extent: [box.west, box.south, box.east, box.north],
+          zRange: [0, topZ],
+          maxRequests: 6,
+          // Translucent tiles must never stack a parent under its children.
+          refinementStrategy: "no-overlap",
+          updateTriggers: { getTileData: [slab.ft, s.key], renderSubLayers: [zs[i], alpha] },
+          renderSubLayers: (p) => {
+            if (!p.data) return null;
+            const bb = p.tile.bbox as GeoBoundingBox;
+            const z = zs[i];
+            return new BitmapLayer({
+              id: `${p.id}-img`,
+              image: p.data,
+              bounds: [
+                [bb.west, bb.south, z],
+                [bb.west, bb.north, z],
+                [bb.east, bb.north, z],
+                [bb.east, bb.south, z],
+              ],
+              opacity: alpha,
+              parameters: { depthWriteEnabled: false },
+            });
+          },
+        }),
+    );
+    layers.push(
+      new PathLayer<{ slab: Slab; i: number }>({
+        id: "stack-rims",
+        data: indexed,
+        widthUnits: "pixels",
+        getPath: (d) => rim(zs[d.i]),
+        getWidth: (d) => (d.slab.kind === "merged" ? 2 + 2.5 * pulse : 1.25),
+        getColor: (d) => (d.slab.kind === "merged" ? [...CORAL_RGB, Math.round(255 * fade * (0.75 + 0.25 * pulse))] : [...hexToRgb(stepColor(d.slab.ft)), Math.round(235 * fade)]),
+        parameters: { depthWriteEnabled: false },
+        updateTriggers: { getPath: [zs.join()], getWidth: [pulse], getColor: [pulse, fade] },
+      }),
+      new LineLayer<number>({
+        id: "stack-guides",
+        data: zs,
+        widthUnits: "pixels",
+        getWidth: 1,
+        getSourcePosition: (z) => [s.lng, s.lat, z],
+        getTargetPosition: () => [s.lng, s.lat, 0],
+        getColor: [...INK_RGB, Math.round(170 * fade)],
+        updateTriggers: { getSourcePosition: [zs.join()], getColor: [fade] },
+      }),
+      new ScatterplotLayer<number>({
+        id: "stack-dots",
+        data: [0, ...zs],
+        billboard: true,
+        radiusUnits: "pixels",
+        lineWidthUnits: "pixels",
+        stroked: true,
+        getRadius: 3,
+        getLineWidth: 1.25,
+        getPosition: (z) => [s.lng, s.lat, z],
+        getFillColor: [248, 250, 251, Math.round(255 * fade)],
+        getLineColor: [...INK_RGB, Math.round(255 * fade)],
+        updateTriggers: { getPosition: [zs.join()], getFillColor: [fade], getLineColor: [fade] },
+      }),
+    );
+    const m = this.stackMarker;
+    if (m) {
+      const z = markerZ(m.levelAboveMhhw, s.slabs, (i) => zs[i]);
+      layers.push(
+        new ScatterplotLayer<number>({
+          id: "stack-marker",
+          data: [z],
+          billboard: true,
+          radiusUnits: "pixels",
+          lineWidthUnits: "pixels",
+          stroked: true,
+          getRadius: 5.5,
+          getLineWidth: 1.5,
+          getPosition: (zz) => [s.lng, s.lat, zz],
+          getFillColor: [...CORAL_RGB, Math.round(255 * fade)],
+          getLineColor: [...INK_RGB, Math.round(255 * fade)],
+          updateTriggers: { getPosition: [z], getFillColor: [fade], getLineColor: [fade] },
+        }),
+      );
+    }
+    return layers;
+  }
+
+  /** Projects a point at a height through deck.gl's camera, which is the one that drew the slabs. */
+  private projectZ(lng: number, lat: number, z: number): { x: number; y: number } | null {
+    const deck = (this.overlay as unknown as { _deck?: { getViewports?: () => { project: (xyz: number[]) => number[] }[] } } | null)?._deck;
+    const vp = deck?.getViewports?.()[0];
+    if (!vp) return null;
+    const [x, y] = vp.project([lng, lat, z]);
+    return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+  }
+
+  private ensureStackEl(): HTMLDivElement {
+    if (this.stackEl) return this.stackEl;
+    const el = document.createElement("div");
+    el.className = "stack-overlay";
+    el.setAttribute("role", "group");
+    el.setAttribute("aria-label", "Water layers, top to bottom");
+    el.dataset.shown = "false";
+    this.map.getContainer().appendChild(el);
+    this.stackEl = el;
+    return el;
+  }
+
+  /** One card per slab, top slab first in reading order. Cards are reused, so a pulse is not cut short by a redraw. */
+  private syncStackCards() {
+    const s = this.stack;
+    const el = this.ensureStackEl();
+    const slabs = s ? [...s.slabs].reverse() : [];
+    const keep = new Set(slabs.map((x) => x.kind));
+    for (const [kind, card] of this.stackCards) {
+      if (!keep.has(kind as Slab["kind"])) {
+        card.remove();
+        this.stackCards.delete(kind);
+      }
+    }
+    for (const slab of slabs) {
+      let card = this.stackCards.get(slab.kind);
+      if (!card) {
+        card = document.createElement("div");
+        card.className = "stack-card";
+        card.dataset.kind = slab.kind;
+        const swatch = document.createElement("span");
+        swatch.className = "stack-swatch";
+        swatch.setAttribute("aria-hidden", "true");
+        const text = document.createElement("p");
+        card.append(swatch, text);
+        this.stackCards.set(slab.kind, card);
+      }
+      (card.firstChild as HTMLElement).style.background = stepColor(slab.ft);
+      card.querySelector("p")!.textContent = slab.label;
+      card.dataset.ft = String(slab.ft);
+      el.appendChild(card);
+    }
+    if (!this.stackMarkerEl) {
+      this.stackMarkerEl = document.createElement("div");
+      this.stackMarkerEl.className = "stack-marker num";
+      el.appendChild(this.stackMarkerEl);
+    }
+    this.stackMarkerEl.textContent = this.stackMarker?.label ?? "";
+  }
+
+  /** Places the cards beside their slabs and pushes them apart when the slabs sit close on screen. */
+  private layoutStack() {
+    const s = this.stack;
+    const el = this.stackEl;
+    if (!el) return;
+    const show = !!s && this.threeD && this.apartT > 0.15;
+    el.dataset.shown = show ? "true" : "false";
+    el.style.opacity = show ? String(Math.min(1, (this.apartT - 0.15) / 0.5)) : "0";
+    if (!s || !show) return;
+    const canvas = this.map.getCanvas();
+    const W = canvas.clientWidth;
+    const H = canvas.clientHeight;
+    const box = canvas.getBoundingClientRect();
+    // Panels over the map. A card that would slide under one moves to the right of its guide line.
+    const panels = [...document.querySelectorAll("[data-map-obstacle]")].map((el) => {
+      const r = el.getBoundingClientRect();
+      return { x0: r.left - box.left, y0: r.top - box.top, x1: r.right - box.left, y1: r.bottom - box.top };
+    });
+    const placed: { card: HTMLDivElement; y: number; h: number; x: number }[] = [];
+    s.slabs.forEach((slab, i) => {
+      const card = this.stackCards.get(slab.kind);
+      if (!card) return;
+      const p = this.projectZ(s.lng, s.lat, this.slabZ(i));
+      const onScreen = !!p && p.x > 40 && p.x < W + 200 && p.y > 0 && p.y < H;
+      card.dataset.hidden = onScreen ? "false" : "true";
+      if (p && onScreen) placed.push({ card, x: p.x, y: p.y, h: card.offsetHeight || 40 });
+    });
+    // Top slab first. Each card keeps at least 6 px of air below the one above it.
+    placed.sort((a, b) => a.y - b.y);
+    let floor = -Infinity;
+    for (const c of placed) {
+      const top = Math.max(c.y - c.h / 2, floor);
+      const w = c.card.offsetWidth || 236;
+      const blocked = panels.some((o) => c.x - 14 - w < o.x1 && c.x - 14 > o.x0 && top < o.y1 && top + c.h > o.y0);
+      c.card.dataset.side = blocked ? "right" : "left";
+      c.card.style.transform = `translate(${c.x.toFixed(1)}px, ${top.toFixed(1)}px)`;
+      c.card.style.setProperty("--lead", `${(c.y - top).toFixed(1)}px`);
+      floor = top + c.h + 6;
+    }
+    const m = this.stackMarker;
+    const mEl = this.stackMarkerEl;
+    if (mEl) {
+      const p = m ? this.projectZ(s.lng, s.lat, markerZ(m.levelAboveMhhw, s.slabs, (i) => this.slabZ(i))) : null;
+      mEl.dataset.hidden = p ? "false" : "true";
+      if (p) mEl.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px)`;
+    }
+  }
+
+  /** The slabs, labels, and the station they belong to. Steps that land on the same foot arrive merged. */
+  setStack(next: StackInput | null) {
+    const moved = !!next && !!this.stack && (next.key !== this.stack.key || next.sliderFt !== this.stack.sliderFt);
+    this.stack = next;
+    // Together, the stack is only stored. Taking the map apart draws it.
+    if (!this.apartTarget && this.apartT === 0) return;
+    this.syncStackCards();
+    this.renderDeck();
+    this.layoutStack();
+    if (moved) this.scheduleWet();
+    this.maybePulse();
+  }
+
+  setStackMarker(m: StackMarker | null) {
+    this.stackMarker = m;
+    if (this.stackMarkerEl) this.stackMarkerEl.textContent = m?.label ?? "";
+    if (this.apartT > 0) {
+      this.renderDeck();
+      this.layoutStack();
+    }
+  }
+
+  get apart(): boolean {
+    return this.apartTarget === 1;
+  }
+
+  /** Takes the water apart into floating slabs, or puts it back. With reduced motion it jumps. */
+  setApart(on: boolean) {
+    const target = on ? 1 : 0;
+    if (target === this.apartTarget) return;
+    this.apartTarget = target;
+    if (!this.ready) return;
+    this.runApart(target, this.opts.reducedMotion ? 0 : APART_MS);
+  }
+
+  private runApart(target: number, duration: number) {
+    const m = this.map;
+    if (target === 1) this.syncStackCards();
+    if (target === 1) {
+      this.preApartView = this.getView();
+      const s = this.stack;
+      const opts = { pitch: APART_PITCH, zoom: Math.min(m.getZoom(), this.stackFitZoom()), offset: this.stackOffset(), duration, essential: true, ...(s ? { center: [s.lng, s.lat] as [number, number] } : {}) };
+      if (duration) m.easeTo(opts);
+      else m.jumpTo(opts);
+    } else if (this.preApartView) {
+      const v = this.preApartView;
+      this.preApartView = null;
+      // Leaving for 2D keeps the flat camera that set3D just asked for.
+      const opts = { center: [v.lng, v.lat] as [number, number], zoom: v.zoom, pitch: this.threeD ? v.pitch : 0, bearing: this.threeD ? v.bearing : 0, duration, essential: true };
+      if (duration) m.easeTo(opts);
+      else m.jumpTo(opts);
+    }
+    cancelAnimationFrame(this.apartRaf);
+    const from = this.apartT;
+    const t0 = performance.now();
+    const step = (now: number) => {
+      const p = duration ? Math.min(1, (now - t0) / duration) : 1;
+      this.apartT = from + (target - from) * easeInOutCubic(p);
+      this.paintWater();
+      this.renderDeck();
+      this.layoutStack();
+      this.scheduleCallouts();
+      if (p < 1 && !this.destroyed) {
+        this.apartRaf = requestAnimationFrame(step);
+        return;
+      }
+      this.apartRaf = 0;
+      this.scheduleWet();
+      this.maybePulse();
+    };
+    if (duration) this.apartRaf = requestAnimationFrame(step);
+    else step(t0);
   }
 
   // Pin -------------------------------------------------------------------
@@ -918,7 +1331,9 @@ export class TideEngine {
       el.dataset.side = side;
       const left = item.kind === "king" ? (side === "right" ? p.x - 4 : p.x - w + 4) : p.x - w / 2;
       const r = { x0: left - 3, y0: p.y - h - 3, x1: left + w + 3, y1: p.y + 3 };
-      const visible = (spotsOn || item.kind === "king") && p.x > pad.left + 4 && p.x < W - pad.right - 4 && p.y > Math.max(pad.top + h, horizon) && p.y < H - pad.bottom;
+      // Taken apart, the slab cards carry the story, so the cards on the ground step aside.
+      const stackUp = this.apartT > 0;
+      const visible = (spotsOn || item.kind === "king") && !stackUp && p.x > pad.left + 4 && p.x < W - pad.right - 4 && p.y > Math.max(pad.top + h, horizon) && p.y < H - pad.bottom;
       const free = visible && !placed.some((o) => r.x0 < o.x1 && r.x1 > o.x0 && r.y0 < o.y1 && r.y1 > o.y0);
       el.dataset.hidden = free ? "false" : "true";
       el.style.opacity = String(opacity);
@@ -941,6 +1356,9 @@ export class TideEngine {
     clearTimeout(this.revealTimer);
     cancelAnimationFrame(this.waterRaf);
     cancelAnimationFrame(this.calloutRaf);
+    cancelAnimationFrame(this.apartRaf);
+    cancelAnimationFrame(this.pulseRaf);
+    this.stackEl?.remove();
     for (const { marker } of this.markers.values()) marker.remove();
     this.markers.clear();
     this.overlay?.finalize();

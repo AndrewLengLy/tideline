@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { scaleLinear } from "d3-scale";
 import { line } from "d3-shape";
 import { fmtDateTime, fmtShortDay } from "@/lib/format";
@@ -64,8 +64,8 @@ function Cursor({ playhead, x, height, top, readout }: { playhead: Playhead; x: 
   );
 }
 
-/** Water level in feet above MLLW: predicted dashed, observed solid, MHHW and flood thresholds as labeled bands. */
-export function WaterLevelChart(props: Props) {
+/** Water level in feet above average low tide (MLLW): predicted dashed, observed solid, average high tide (MHHW) and flood thresholds as labeled bands. */
+export const WaterLevelChart = memo(function WaterLevelChart(props: Props) {
   const { t0, stepMs, count, predicted, observed, mhhw, thresholds, king, playhead, height, compact, stationName, initialWidth } = props;
   const minorMllw = thresholds.minor !== null ? mhhw + thresholds.minor : null;
   const moderateMllw = thresholds.moderate !== null ? mhhw + thresholds.moderate : null;
@@ -87,7 +87,7 @@ export function WaterLevelChart(props: Props) {
     return out;
   }, [t0, stepMs, count]);
 
-  const label = `${stationName} water level in feet above MLLW. MHHW is ${mhhw.toFixed(1)} ft${minorMllw !== null ? `, minor flood threshold ${minorMllw.toFixed(1)} ft` : ""}.`;
+  const label = `${stationName} water level in feet above average low tide. Average high tide is ${mhhw.toFixed(1)} ft${minorMllw !== null ? `, flood line ${minorMllw.toFixed(1)} ft` : ""}.`;
 
   return (
     <ChartFrame height={height} label={label} initialWidth={initialWidth} className="w-full">
@@ -139,13 +139,13 @@ export function WaterLevelChart(props: Props) {
             ))}
             <line x1={margin.l} x2={w - margin.r} y1={y(mhhw)} y2={y(mhhw)} stroke={INK} strokeWidth={1} />
             <text x={w - margin.r - 2} y={y(mhhw) + 11} fontSize={10} textAnchor="end" fill={INK} className="num">
-              MHHW {mhhw.toFixed(1)}
+              average high {mhhw.toFixed(1)}
             </text>
             {minorMllw !== null ? (
               <>
                 <line x1={margin.l} x2={w - margin.r} y1={y(minorMllw)} y2={y(minorMllw)} stroke={CORAL} strokeWidth={1} strokeDasharray="4 3" />
                 <text x={w - margin.r - 2} y={y(minorMllw) - 3} fontSize={10} textAnchor="end" fill="#a93f25" className="num">
-                  minor flood {minorMllw.toFixed(1)}
+                  flood line {minorMllw.toFixed(1)}
                 </text>
               </>
             ) : null}
@@ -153,7 +153,7 @@ export function WaterLevelChart(props: Props) {
               <>
                 <line x1={margin.l} x2={w - margin.r} y1={y(moderateMllw)} y2={y(moderateMllw)} stroke={CORAL} strokeWidth={1} />
                 <text x={margin.l + 3} y={y(moderateMllw) - 3} fontSize={10} fill="#a93f25" className="num">
-                  moderate {moderateMllw.toFixed(1)}
+                  moderate flood {moderateMllw.toFixed(1)}
                 </text>
               </>
             ) : null}
@@ -188,4 +188,4 @@ export function WaterLevelChart(props: Props) {
       }}
     </ChartFrame>
   );
-}
+});

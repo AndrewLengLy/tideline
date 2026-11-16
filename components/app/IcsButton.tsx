@@ -20,7 +20,7 @@ export function IcsButton({ tide, className = "" }: { tide: KingTide; className?
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex h-11 items-center rounded border border-line bg-panel px-2.5 text-[13px] text-ink hover:border-ink lg:h-8 ${className}`}
+      className={`inline-flex h-11 min-w-11 items-center justify-center rounded border border-line bg-panel px-2.5 text-[13px] text-ink hover:border-ink lg:h-8 ${className}`}
       aria-label={`Add the ${tide.stationName} king tide on ${new Date(tide.t).toISOString().slice(0, 10)} to a calendar`}
     >
       .ics

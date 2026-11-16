@@ -34,6 +34,21 @@ export const WATERLINE_HALO = "#0d2230";
 /** Land that is already wet at today's high tide, such as marsh and salt ponds. */
 export const WET_TODAY = "#c4dfec";
 
+/**
+ * Calendar city faces. Days under the flood line are a cool gray, lit from the top. Days over it
+ * turn coral and sit on a coral base tile, so the count never rests on color alone.
+ */
+export const CITY = {
+  dryTop: "#dfe7eb",
+  dryFront: "#bccad2",
+  drySide: "#a5b6c0",
+  wetTop: "#f4a690",
+  wetFront: "#e76f51",
+  wetSide: "#c4583d",
+  base: "#e76f51",
+  empty: "#e4ebef",
+} as const;
+
 export function hexToRgb(hex: string): [number, number, number] {
   return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) as [number, number, number];
 }

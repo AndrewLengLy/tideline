@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { TideEngine, type CalloutItem, type GaugeDatum, type ViewState } from "./engine";
+import { TideEngine, type CalloutItem, type GaugeDatum, type StackInput, type StackMarker, type ViewState } from "./engine";
 import type { LayerSettings } from "./layers";
 import { MapControls } from "./MapControls";
 import { prefersReducedMotion, type Playhead } from "./playhead";
@@ -29,6 +29,13 @@ interface Props {
   onWetBuildings: (wet: { n: number; ft: number } | null) => void;
   is3D: boolean;
   on3D: (on: boolean) => void;
+  /** The exploded view: water lifted into labeled slabs over the selected station. */
+  apart: boolean;
+  canApart: boolean;
+  onApart: (on: boolean) => void;
+  stack: StackInput;
+  /** The tide at the scrubber time, for the marker that rides the stack. */
+  getStackMarker: () => StackMarker | null;
   playhead: Playhead;
   getGauges: () => GaugeDatum[];
   gaugesKey: unknown;
@@ -45,7 +52,7 @@ interface Props {
 }
 
 export default function MapStage(props: Props) {
-  const { initialView, phone, webgl2, layers, waterFt, compare, compareFt, exaggeration, is3D, playhead, gaugesKey, callouts, fly, ariaLabel, padding } = props;
+  const { initialView, phone, webgl2, layers, waterFt, compare, compareFt, exaggeration, is3D, apart, stack, playhead, gaugesKey, callouts, fly, ariaLabel, padding } = props;
   const primaryEl = useRef<HTMLDivElement>(null);
   const compareEl = useRef<HTMLDivElement>(null);
   const engine = useRef<TideEngine | null>(null);
@@ -83,6 +90,8 @@ export default function MapStage(props: Props) {
     e.setGauges(latest.current.getGauges());
     e.setCallouts(latest.current.callouts);
     e.setPin(latest.current.pin);
+    e.setStack(latest.current.stack);
+    e.setApart(latest.current.apart);
     (window as unknown as { __tideEngine?: TideEngine }).__tideEngine = e;
     return () => {
       e.destroy();
@@ -98,6 +107,19 @@ export default function MapStage(props: Props) {
   useEffect(() => engine.current?.setCallouts(callouts), [callouts]);
   useEffect(() => engine.current?.setPadding(padding), [padding]);
   useEffect(() => engine.current?.setPin(props.pin), [props.pin]);
+  useEffect(() => engine.current?.setStack(stack), [stack]);
+  useEffect(() => engine.current?.setApart(apart), [apart]);
+
+  // Taken apart, a dot rides the stack with the tide at the scrubber time.
+  useEffect(() => {
+    if (!apart) {
+      engine.current?.setStackMarker(null);
+      return;
+    }
+    const push = () => engine.current?.setStackMarker(latest.current.getStackMarker());
+    push();
+    return playhead.subscribe(push);
+  }, [apart, playhead, gaugesKey, stack]);
 
   // Column heights follow the playhead without going through React state.
   useEffect(() => {
@@ -122,7 +144,7 @@ export default function MapStage(props: Props) {
       phone,
       webgl2,
       secondary: true,
-      ariaLabel: "Comparison map at today's MHHW",
+      ariaLabel: "Comparison map at today's average high tide",
       reducedMotion: prefersReducedMotion(),
       padding: latest.current.padding,
     });
@@ -204,7 +226,7 @@ export default function MapStage(props: Props) {
           >
             <div className="h-full w-0.5 bg-ink" />
             <div className="panel num absolute top-1/2 flex -translate-y-1/2 whitespace-nowrap text-[12px]">
-              <span className="border-r border-line px-2 py-1">Today, MHHW</span>
+              <span className="border-r border-line px-2 py-1">Today, average high tide</span>
               <span className="px-2 py-1">+{compareFt} ft</span>
             </div>
           </div>
@@ -221,6 +243,9 @@ export default function MapStage(props: Props) {
           webgl2={webgl2}
           exaggeration={exaggeration}
           onExaggeration={props.onExaggeration}
+          canApart={props.canApart}
+          apart={apart}
+          onApart={props.onApart}
         />
       </div>
     </>

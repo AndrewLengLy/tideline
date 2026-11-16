@@ -68,15 +68,15 @@ describe("future-tide equivalent", () => {
 
   it("writes the brief's sentence", () => {
     const now = Date.UTC(2026, 11, 22, 18, 0);
-    expect(kingTideSentence(tide({}), now)).toBe("Saturday's 7.8 ft high at Alameda sits 1.2 ft above MHHW. With 1.2 ft of sea level rise, that becomes a normal high tide.");
+    expect(kingTideSentence(tide({}), now)).toBe("Saturday's 7.8 ft high at Alameda sits 1.2 ft above an average high tide. With 1.2 ft of sea level rise, that becomes an ordinary high tide.");
   });
 
   it("names the date when the tide is more than a week out", () => {
     expect(kingTideSentence(tide({}), Date.UTC(2026, 10, 6))).toMatch(/^Dec 26's 7\.8 ft high/);
   });
 
-  it("says so when a high stays at or below MHHW", () => {
-    expect(kingTideSentence(tide({ aboveMhhw: -0.2, height: 6.4 }), Date.UTC(2026, 10, 6))).toContain("stays at or below MHHW");
+  it("says so when a high stays at or below an average high tide", () => {
+    expect(kingTideSentence(tide({ aboveMhhw: -0.2, height: 6.4 }), Date.UTC(2026, 10, 6))).toContain("stays at or below an average high tide");
   });
 });
 

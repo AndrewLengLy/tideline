@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@deck.gl/core": "^9.4.1",
+    "@deck.gl/geo-layers": "^9.4.1",
     "@deck.gl/layers": "^9.4.1",
     "@deck.gl/mapbox": "^9.4.1",
     "@fontsource/ibm-plex-mono": "^5.3.0",

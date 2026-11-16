@@ -1,7 +1,7 @@
 // Custom tile protocols. Each one fetches a public tile, repaints it on a canvas, and hands
 // MapLibre the result as a bitmap. This is how NOAA's palette becomes Tideline's blue steps.
 import maplibregl from "maplibre-gl";
-import { confTileUrl, paintBand, paintEdge, paintFill, recolorConfTile } from "@/lib/sources/slr";
+import { confTileUrl, paintBand, paintEdge, paintFill, paintSlab, recolorConfTile } from "@/lib/sources/slr";
 import { classes } from "./slr-cache";
 import { buildLut, IMAGERY_CONTRAST, IMAGERY_PHOTO, IMAGERY_RAMP, tintPixels } from "./tint";
 
@@ -97,4 +97,38 @@ export function registerProtocols() {
 }
 
 export const TILE_SIZE = SIZE;
+
+export interface LngLatBox {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}
+
+const mercY = (lat: number) => {
+  const r = (lat * Math.PI) / 180;
+  return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2;
+};
+
+/**
+ * A slab tile for the exploded view, built from the same decoded NOAA tiles and paint code as the
+ * draped tideslr layers, so the floating water matches the water on the ground pixel for pixel.
+ * Pixels outside `box` stay clear. Null when NOAA has no tile there.
+ */
+export async function slabTile(ft: number, z: number, y: number, x: number, box: LngLatBox, signal?: AbortSignal): Promise<ImageBitmap | null> {
+  const [Z, Y, X] = [String(z), String(y), String(x)];
+  const cur = await classes(ft, Z, Y, X);
+  const base = ft === 0 ? cur : await classes(0, Z, Y, X);
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+  if (!cur || !base || base.w !== cur.w || base.h !== cur.h) return null;
+  const n = 2 ** z;
+  // The box in this tile's pixels. Web Mercator keeps a lng/lat box square to the pixel grid.
+  const x0 = (((box.west + 180) / 360) * n - x) * cur.w;
+  const x1 = (((box.east + 180) / 360) * n - x) * cur.w;
+  const y0 = (mercY(box.north) * n - y) * cur.h;
+  const y1 = (mercY(box.south) * n - y) * cur.h;
+  const img = new ImageData(cur.w, cur.h);
+  paintSlab(img.data, cur, base, ft, (px, py) => px + 0.5 >= x0 && px + 0.5 < x1 && py + 0.5 >= y0 && py + 0.5 < y1);
+  return createImageBitmap(img, { premultiplyAlpha: "none", colorSpaceConversion: "none" });
+}
 

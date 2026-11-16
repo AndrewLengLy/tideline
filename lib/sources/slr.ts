@@ -174,6 +174,41 @@ export function paintEdge(out: Uint8ClampedArray, cur: SlrClasses): void {
   }
 }
 
+/** Opacity of open water on a floating slab. The draped fill leaves open water clear for the basemap. */
+const SLAB_OPEN_ALPHA = 120;
+
+/**
+ * One floating slab for the exploded view. The fill and the waterline are the same pixels the
+ * draped layers paint for this step. Open water gets the step blue at low opacity, so the slab keeps
+ * its shape in the air. Pixels where `keep` returns false stay clear, which crops the slab to a box.
+ */
+export function paintSlab(out: Uint8ClampedArray, cur: SlrClasses, base: SlrClasses, ft: number, keep: (x: number, y: number) => boolean = () => true): void {
+  paintFill(out, cur, base, ft);
+  const edge = new Uint8ClampedArray(out.length);
+  paintEdge(edge, cur);
+  const step = hexToRgb(STEP_COLORS[Math.max(0, Math.min(10, ft))]);
+  const { w, h } = cur;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      const o = i * 4;
+      if (!keep(x, y)) {
+        out[o + 3] = 0;
+      } else if (edge[o + 3] > 0) {
+        out[o] = edge[o];
+        out[o + 1] = edge[o + 1];
+        out[o + 2] = edge[o + 2];
+        out[o + 3] = edge[o + 3];
+      } else if (out[o + 3] === 0 && cur.cls[i] === OPEN) {
+        out[o] = step[0];
+        out[o + 1] = step[1];
+        out[o + 2] = step[2];
+        out[o + 3] = SLAB_OPEN_ALPHA;
+      }
+    }
+  }
+}
+
 /** Confidence tiles use orange (255,170,0) for low confidence. That class becomes a diagonal hatch and the rest goes clear. */
 export function recolorConfTile(data: Uint8ClampedArray, width: number, height: number): void {
   for (let y = 0; y < height; y++) {

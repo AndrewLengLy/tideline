@@ -1,6 +1,6 @@
 import "server-only";
 import { cache } from "react";
-import { daysOverForStation, countingThreshold } from "./metrics/days-over";
+import { countingThreshold, dailyMaxHighs, daysOverForStation } from "./metrics/days-over";
 import { bayCalendar, highestTides, nextTide } from "./metrics/king-tides";
 import { residualSeries, surgeSummary } from "./metrics/surge";
 import { fetchCurve, fetchHilo, fetchObserved, fetchPredictedForObserved } from "./sources/coops";
@@ -14,6 +14,7 @@ export const getYearHilo = cache(async (stationId: string): Promise<HiLo[]> => f
 function overviewFor(station: Station, hilo: HiLo[], now: number): StationOverview {
   const kingTides = highestTides(hilo, station);
   const counting = countingThreshold(station.thresholds);
+  const daily = dailyMaxHighs(hilo);
   return {
     stationId: station.id,
     kingTides,
@@ -22,6 +23,8 @@ function overviewFor(station: Station, hilo: HiLo[], now: number): StationOvervi
     thresholdKind: counting?.kind ?? null,
     thresholdFt: counting?.ft ?? null,
     highCount: hilo.filter((p) => p.type === "H").length,
+    dailyStart: daily.start,
+    dailyMax: daily.max,
   };
 }
 
@@ -53,9 +56,12 @@ export interface StationLive {
   surge: SurgeSummary | null;
 }
 
-/** Observed water level for the last 72 hours with its residual against the prediction. */
-export async function getStationLive(stationId: string, now = Date.now()): Promise<StationLive> {
-  const [observed, predictedAll] = await Promise.all([fetchObserved(stationId), fetchPredictedForObserved(stationId, now)]);
+/**
+ * Observed water level for the last 72 hours with its residual against the prediction.
+ * With `fresh`, the observed request skips the data cache. Predictions stay cached, since a day-old copy of a tide table is still right.
+ */
+export async function getStationLive(stationId: string, now = Date.now(), opts: { fresh?: boolean } = {}): Promise<StationLive> {
+  const [observed, predictedAll] = await Promise.all([fetchObserved(stationId, opts.fresh), fetchPredictedForObserved(stationId, now)]);
   const start = observed[0]?.t ?? now - 3 * DAY;
   const end = observed[observed.length - 1]?.t ?? now;
   const predicted = predictedAll.filter((p) => p.t >= start && p.t <= end);

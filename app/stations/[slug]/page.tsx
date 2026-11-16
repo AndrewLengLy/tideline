@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Term } from "@/components/app/Term";
 import { PageShell, Stat } from "@/components/PageShell";
 import { TideTable } from "@/components/TideTable";
 import { getOverview, getStationLive, type StationLive } from "@/lib/data";
@@ -77,21 +78,21 @@ export default async function StationPage({ params }: { params: Promise<{ slug: 
       {next ? <p className="mt-3 max-w-2xl">{kingTideSentence(next, now)}</p> : <p className="mt-3">NOAA did not answer for this gauge. Predictions return on the next refresh.</p>}
 
       <dl className="mt-5 grid gap-3 sm:grid-cols-3">
-        {next ? <Stat label="Next king tide" value={ft(next.height)} note={`${fmtShortDay(next.t)}, ${fmtTime(next.t)}. Above MLLW.`} testId="headline-number" /> : null}
-        {next ? <Stat label="Future-tide equivalent" value={ft(futureTideEquivalent(next.aboveMhhw))} note="Sea level rise that makes it a normal high." /> : null}
-        {live?.surge ? <Stat label="Max surge, last 72 hours" value={signedFt(live.surge.maxFt, 2)} note={fmtDateTime(live.surge.at)} /> : null}
+        {next ? <Stat label="Next king tide" value={ft(next.height)} note={`${fmtShortDay(next.t)}, ${fmtTime(next.t)}. Above an average low tide.`} testId="headline-number" /> : null}
+        {next ? <Stat label="Future-tide equivalent" value={ft(futureTideEquivalent(next.aboveMhhw))} note="Sea level rise that makes it an ordinary high tide." /> : null}
+        {live?.surge ? <Stat label="Largest storm push, last 72 hours" value={signedFt(live.surge.maxFt, 2)} note={fmtDateTime(live.surge.at)} /> : null}
       </dl>
       <p className="mt-2 text-[14px] text-muted">Predictions from NOAA CO-OPS, {fmtAsOf(now)}.</p>
 
       <section className="mt-8">
-        <h2 className="text-[22px]">Days over threshold, next 12 months</h2>
+        <h2 className="text-[22px]">Days the tide reaches the {t.minor === null ? "action level" : "flood line"}, next 12 months</h2>
         {t.minor === null ? (
           <p className="mt-2 max-w-2xl">
             NOAA publishes no minor, moderate, or major high tide flooding thresholds for this gauge.
-            {t.action !== null ? ` The table below counts days over the gauge's action level, ${ft(t.action, 2)} above MHHW. An action level is a watch point, and crossing it does not mean flooding.` : ""}
+            {t.action !== null ? ` The table below counts days over the gauge's action level, ${ft(t.action, 2)} above an average high tide. An action level is a watch point, and crossing it does not mean flooding.` : ""}
           </p>
         ) : (
-          <p className="mt-2 max-w-2xl">Predicted days with a high tide above NOAA&apos;s minor high tide flooding threshold, {ft(t.minor, 2)} above MHHW. Each row adds that height to every prediction.</p>
+          <p className="mt-2 max-w-2xl">Predicted days with a high tide above the flood line, NOAA&apos;s minor high tide flooding threshold, {ft(t.minor, 2)} above an <Term term="MHHW" full="mean higher high water">average high tide</Term>. Each row adds that height to every prediction.</p>
         )}
         {o?.daysOver.length ? (
           <table className="data-table num mt-3 max-w-md">
@@ -118,7 +119,7 @@ export default async function StationPage({ params }: { params: Promise<{ slug: 
         {live && live.surge ? (
           <>
             <p className="mt-2 max-w-2xl">
-              Observed water level ran as much as <span className="num">{signedFt(live.surge.maxFt, 2)}</span> against the prediction, at <span className="num">{fmtDateTime(live.surge.at)}</span>. The latest residual is <span className="num">{signedFt(live.surge.latestFt, 2)}</span>. Wind and air pressure drive most of a residual. The long-term rise since the 1983 to 2001 datum epoch adds to it.
+              Observed water level ran as much as <span className="num">{signedFt(live.surge.maxFt, 2)}</span> against the prediction, at <span className="num">{fmtDateTime(live.surge.at)}</span>. The latest <span title="Residual, or surge">storm push</span> is <span className="num">{signedFt(live.surge.latestFt, 2)}</span>. Wind and air pressure drive most of it. The long-term rise since the 1983 to 2001 datum epoch adds to it.
             </p>
             <div className="mt-3">
               <StationCharts station={station} t0={t0} count={count} observed={align(live.observed, t0, count)} predicted={align(live.predicted, t0, count)} residual={align(live.residual, t0, count)} king={null} />
@@ -147,32 +148,42 @@ export default async function StationPage({ params }: { params: Promise<{ slug: 
             <thead>
               <tr>
                 <th scope="col">Datum</th>
-                <th scope="col">Feet above MLLW</th>
+                <th scope="col">Feet above average low tide</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td>MHHW</td>
+                <td>
+                  <Term term="MHHW" full="mean higher high water">Average high tide</Term>
+                </td>
                 <td>{d.mhhw.toFixed(2)}</td>
               </tr>
               {d.mhw !== null ? (
                 <tr>
-                  <td>MHW</td>
+                  <td>
+                    <Term term="MHW" full="mean high water">Average of all high tides</Term>
+                  </td>
                   <td>{d.mhw.toFixed(2)}</td>
                 </tr>
               ) : null}
               <tr>
-                <td>MSL</td>
+                <td>
+                  <Term term="MSL" full="mean sea level">Average sea level</Term>
+                </td>
                 <td>{d.msl.toFixed(2)}</td>
               </tr>
               {d.navd88 !== null ? (
                 <tr>
-                  <td>NAVD88</td>
+                  <td>
+                    <Term term="NAVD88" full="North American Vertical Datum of 1988">Land survey zero</Term>
+                  </td>
                   <td>{d.navd88.toFixed(2)}</td>
                 </tr>
               ) : null}
               <tr>
-                <td>MLLW</td>
+                <td>
+                  <Term term="MLLW" full="mean lower low water">Average low tide</Term>
+                </td>
                 <td>0.00</td>
               </tr>
             </tbody>
@@ -187,7 +198,7 @@ export default async function StationPage({ params }: { params: Promise<{ slug: 
               {t.action !== null ? (
                 <>
                   {" "}
-                  Its action level is <span className="num">{ft(t.action, 2)}</span> above MHHW.
+                  Its action level is <span className="num">{ft(t.action, 2)}</span> above an average high tide.
                 </>
               ) : null}
             </p>
@@ -196,8 +207,8 @@ export default async function StationPage({ params }: { params: Promise<{ slug: 
               <thead>
                 <tr>
                   <th scope="col">Level</th>
-                  <th scope="col">Above MHHW</th>
-                  <th scope="col">Above MLLW</th>
+                  <th scope="col">Above average high tide</th>
+                  <th scope="col">Above average low tide</th>
                 </tr>
               </thead>
               <tbody>
@@ -219,7 +230,7 @@ export default async function StationPage({ params }: { params: Promise<{ slug: 
           )}
           {t.nwsMinor !== null ? (
             <p className="mt-2 text-[15px]">
-              The National Weather Service uses a lower local minor level at this gauge, <span className="num">{ft(t.nwsMinor, 2)}</span> above MHHW.
+              The National Weather Service uses a lower local minor level at this gauge, <span className="num">{ft(t.nwsMinor, 2)}</span> above an average high tide.
             </p>
           ) : null}
           {t.minor !== null && recentFloods.length ? (

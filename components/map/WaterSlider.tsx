@@ -4,6 +4,7 @@ import { signedFt } from "@/lib/format";
 import { STEP_COLORS, stepColor } from "@/lib/colors";
 import { LINKS } from "@/lib/site";
 import type { MapPlace } from "@/lib/types";
+import { sliderTip } from "./slider-tip";
 import { wetSentence } from "./wet-buildings";
 
 interface Props {
@@ -24,15 +25,7 @@ interface Props {
   wetBuildings: { n: number; ft: number } | null;
 }
 
-/** One line per range, from the State of California Sea Level Rise Guidance, 2024 (statewide figures). */
-export function sliderTip(ft: number, kingEq: number | null): string {
-  const king = kingEq !== null && ft > 0 && Math.round(kingEq) === ft ? "The next king tide previews this level. " : "";
-  if (ft === 0) return "0 ft is today's high-tide line, the bright edge on the map. An ordinary high tide stops there.";
-  if (ft === 1) return `${king}The state expects about 0.8 ft of rise by 2050.`;
-  if (ft <= 3) return `${king}The state's likely range for 2100 is 1.6 to 3.1 ft.`;
-  if (ft <= 6) return `${king}This is past the likely 2100 range. The state's high scenario reaches 6.6 ft by 2100.`;
-  return `${king}This is past every 2100 scenario. The state's range for 2150 runs as high as 11.9 ft.`;
-}
+export { sliderTip };
 
 const TICKS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
 
@@ -47,7 +40,7 @@ export function WaterSlider({ value, onChange, effective, tideAddFt, kingEq, kin
           <span className="inline-block h-2.5 w-2.5 rounded-[2px]" style={{ background: stepColor(value) }} aria-hidden />
           {value} ft
         </p>
-        <div className="relative mt-2 h-[230px] md:h-[310px]">
+        <div className="relative mt-2 h-[230px] md:h-[310px] lg:h-[270px]">
           <div className="absolute inset-y-[11px] left-[20px] w-[6px] overflow-hidden rounded-sm" aria-hidden>
             {TICKS.map((t) => (
               <div key={t} style={{ background: STEP_COLORS[t], height: `${100 / 11}%` }} />
@@ -84,7 +77,7 @@ export function WaterSlider({ value, onChange, effective, tideAddFt, kingEq, kin
             value={value}
             onChange={(e) => onChange(Number(e.target.value))}
             className="water-range absolute left-[1px] top-0"
-            aria-label="Sea level rise in feet above today's MHHW"
+            aria-label="Sea level rise in feet above today's average high tide"
             aria-valuetext={`${value} feet of sea level rise`}
           />
         </div>

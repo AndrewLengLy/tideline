@@ -80,11 +80,14 @@ export async function fetchCurve(stationId: string, startDay: string, days = 7):
   return parts.flat();
 }
 
-/** Observed water level for the last 72 hours. */
-export async function fetchObserved(stationId: string): Promise<SeriesPoint[]> {
+/**
+ * Observed water level for the last 72 hours.
+ * @param fresh skip the data cache. The observed API route sets this, and its CDN header bounds the traffic to NOAA.
+ */
+export async function fetchObserved(stationId: string, fresh = false): Promise<SeriesPoint[]> {
   const json = await getJson(`${BASE}?product=water_level&range=72&station=${stationId}&${COMMON}`, waterLevelSchema, {
     source: `CO-OPS water level ${stationId}`,
-    ...OBSERVED_CACHE,
+    ...(fresh ? { cache: "no-store" as const } : OBSERVED_CACHE),
   });
   return parseWaterLevel(json);
 }

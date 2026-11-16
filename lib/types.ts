@@ -120,6 +120,10 @@ export interface MapStationOverview {
   kings: [number, number][];
   daysOver: DaysOverRow[];
   thresholdKind: "minor" | "action" | null;
+  /** First Pacific day of `dailyMax`, "YYYY-MM-DD". */
+  dailyStart: string;
+  /** Highest predicted high per Pacific day for the next 12 months, feet above MLLW. The calendar city counts flood days from it. */
+  dailyMax: (number | null)[];
 }
 export interface MapOverview {
   asOf: number;
@@ -135,6 +139,8 @@ export interface StationOverview {
   thresholdKind: "minor" | "action" | null;
   thresholdFt: number | null;
   highCount: number;
+  dailyStart: string;
+  dailyMax: (number | null)[];
 }
 
 export interface Overview {

@@ -337,6 +337,101 @@ a {
   }
 }
 
+/* Exploded view: a card beside each floating slab, on a short leader to the station's guide line. */
+.stack-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.stack-card {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  width: max-content;
+  max-width: 236px;
+  translate: calc(-100% - 14px) 0;
+  padding: 5px 8px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-line);
+  border-radius: 4px;
+  color: var(--color-ink);
+  font-size: 12.5px;
+  line-height: 1.3;
+}
+
+.stack-card p {
+  margin: 0;
+}
+
+.stack-card::after {
+  content: "";
+  position: absolute;
+  right: -14px;
+  top: var(--lead, 50%);
+  width: 14px;
+  height: 1px;
+  background: var(--color-ink);
+}
+
+.stack-swatch {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  margin-top: 3px;
+  border: 1px solid rgb(13 34 48 / 0.4);
+  border-radius: 2px;
+}
+
+.stack-card[data-side="right"] {
+  translate: 14px 0;
+}
+
+.stack-card[data-side="right"]::after {
+  right: auto;
+  left: -14px;
+}
+
+.stack-card[data-kind="merged"] {
+  border-color: var(--color-coral);
+}
+
+.stack-card[data-pulse="true"] {
+  animation: stack-pulse 0.8s ease-in-out 3;
+}
+
+@keyframes stack-pulse {
+  50% {
+    box-shadow: 0 0 0 4px rgb(231 111 81 / 0.35);
+  }
+}
+
+.stack-marker {
+  position: absolute;
+  left: 0;
+  top: 0;
+  translate: 10px -50%;
+  padding: 1px 6px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-ink);
+  border-radius: 3px;
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.stack-marker:empty {
+  display: none;
+}
+
+.stack-card[data-hidden="true"],
+.stack-marker[data-hidden="true"] {
+  visibility: hidden;
+}
+
 /* The pin for a checked place: a coral drop with an ink ring, pointing at the spot. */
 .place-pin {
   width: 22px;

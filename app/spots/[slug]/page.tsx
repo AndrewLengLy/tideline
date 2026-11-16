@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Term } from "@/components/app/Term";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell, Stat } from "@/components/PageShell";
@@ -74,8 +75,8 @@ export default async function SpotPage({ params }: { params: Promise<{ slug: str
   if (spot.firstFloodFt !== null && eq !== null) {
     gap =
       spot.firstFloodFt <= Math.round(eq)
-        ? `NOAA's layer already reaches this spot at the height of the next king tide, ${ft(eq)} above MHHW at the ${station.name} gauge.`
-        : `That is ${ft(spot.firstFloodFt - eq)} above the next king tide, which sits ${ft(eq)} above MHHW at the ${station.name} gauge.`;
+        ? `NOAA's layer already reaches this spot at the height of the next king tide, ${ft(eq)} above an average high tide at the ${station.name} gauge.`
+        : `That is ${ft(spot.firstFloodFt - eq)} above the next king tide, which sits ${ft(eq)} above an average high tide at the ${station.name} gauge.`;
   }
 
   const belowLayer = spot.floodingReported && eq !== null && (spot.firstFloodFt === null || spot.firstFloodFt > Math.round(eq));
@@ -92,7 +93,7 @@ export default async function SpotPage({ params }: { params: Promise<{ slug: str
       </p>
 
       <dl className="mt-5 grid gap-3 sm:grid-cols-2">
-        <Stat label="First floods on NOAA's layer at" value={spot.firstFloodFt === null ? "above 10 ft" : ft(spot.firstFloodFt, 0)} note="Sea level rise above today's MHHW." testId="headline-number" />
+        <Stat label="First floods on NOAA's layer at" value={spot.firstFloodFt === null ? "above 10 ft" : ft(spot.firstFloodFt, 0)} note="Sea level rise above today's average high tide." testId="headline-number" />
         {next ? <Stat label={`Next king tide, ${station.name} gauge`} value={ft(next.height)} note={`${fmtShortDay(next.t)}, ${fmtTime(next.t)}. ${milesAway(spot.nearestStationMi)} from this spot.`} /> : null}
       </dl>
       {gap ? <p className="mt-3 max-w-2xl">{gap}</p> : null}
@@ -131,7 +132,7 @@ export default async function SpotPage({ params }: { params: Promise<{ slug: str
         ) : (
           <p className="mt-2">NOAA did not answer for this gauge. Times return on the next refresh.</p>
         )}
-        <p className="mt-2 text-[14px] text-muted">Heights in feet above MLLW. Predictions from NOAA CO-OPS, {fmtAsOf(overview.asOf)}.</p>
+        <p className="mt-2 text-[14px] text-muted">Heights in feet above an <Term term="MLLW" full="mean lower low water">average low tide</Term>. Predictions from NOAA CO-OPS, {fmtAsOf(overview.asOf)}.</p>
       </section>
 
       <section className="mt-7 max-w-2xl">

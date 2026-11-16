@@ -1,5 +1,5 @@
-import { fmtMonthDay, fmtWeekday, round1 } from "../format";
-import { DAY } from "../time";
+import { fmtDayLabel, fmtMonthDay, fmtMonthName, fmtWeekday, round1 } from "../format";
+import { DAY, dayStart, HOUR, pacificDay } from "../time";
 import type { HiLo, KingTide, Station } from "../types";
 
 export const KING_TIDE_COUNT = 20;
@@ -42,13 +42,53 @@ export function bayCalendar(perStation: KingTide[][], n = KING_TIDE_COUNT): King
     .sort((a, b) => a.t - b.t);
 }
 
-/** "Saturday's 7.1 ft high at Alameda sits 1.2 ft above MHHW. With 1.2 ft of sea level rise, that becomes a normal high tide." */
+/** "Saturday's 7.1 ft high at Alameda sits 1.2 ft above an average high tide. With 1.2 ft of sea level rise, that becomes an ordinary high tide." */
 export function kingTideSentence(k: KingTide, now: number): string {
   const within = k.t - now < 6 * DAY && k.t >= now;
   const when = within ? fmtWeekday(k.t) : fmtMonthDay(k.t);
   const eq = futureTideEquivalent(k.aboveMhhw).toFixed(1);
   if (k.aboveMhhw <= 0) {
-    return `${when}'s ${k.height.toFixed(1)} ft high at ${k.stationName} stays at or below MHHW, the height of an ordinary daily high.`;
+    return `${when}'s ${k.height.toFixed(1)} ft high at ${k.stationName} stays at or below an average high tide, the height of an ordinary daily high.`;
   }
-  return `${when}'s ${k.height.toFixed(1)} ft high at ${k.stationName} sits ${eq} ft above MHHW. With ${eq} ft of sea level rise, that becomes a normal high tide.`;
+  return `${when}'s ${k.height.toFixed(1)} ft high at ${k.stationName} sits ${eq} ft above an average high tide. With ${eq} ft of sea level rise, that becomes an ordinary high tide.`;
+}
+
+/** "about 1 ft above an average high tide", to the nearest half foot. */
+export function aboutHighTide(aboveMhhwFt: number): string {
+  const r = Math.round(aboveMhhwFt * 2) / 2;
+  if (r === 0) return "about level with an average high tide";
+  const n = Math.abs(r);
+  return `about ${Number.isInteger(n) ? n.toFixed(0) : n.toFixed(1)} ft ${r > 0 ? "above" : "below"} an average high tide`;
+}
+
+const dayDiff = (a: string, b: string) => {
+  const [ya, ma, da] = a.split("-").map(Number);
+  const [yb, mb, db] = b.split("-").map(Number);
+  return Math.round((Date.UTC(yb, mb - 1, db) - Date.UTC(ya, ma - 1, da)) / DAY);
+};
+
+/**
+ * One sentence on the selected station: its highest predicted tide for the rest of this month,
+ * or for the next 30 days once fewer than a week of the month is left.
+ * "Alameda's highest tide for the rest of November is 7.7 ft on Tue Nov 24, about 1 ft above an average high tide."
+ * @param daily highest predicted high per Pacific day, feet above MLLW, starting on `start`
+ */
+export function stationSentence(name: string, daily: (number | null)[], start: string, mhhwAboveMllw: number, now: number): string | null {
+  if (!start || !daily.length) return null;
+  const today = pacificDay(now);
+  const i0 = Math.max(0, dayDiff(start, today));
+  const month = today.slice(0, 7);
+  let monthLeft = 0;
+  for (let i = i0; i < daily.length && pacificDay(dayStart(start) + (i + 0.5) * DAY).slice(0, 7) === month; i++) monthLeft++;
+  const span = monthLeft >= 7 ? monthLeft : 30;
+  let best = -1;
+  for (let i = i0; i < Math.min(daily.length, i0 + span); i++) {
+    const v = daily[i];
+    if (v !== null && (best < 0 || v > (daily[best] as number))) best = i;
+  }
+  if (best < 0) return null;
+  const v = daily[best] as number;
+  const at = dayStart(start) + best * DAY + 12 * HOUR;
+  const when = monthLeft >= 7 ? `for the rest of ${fmtMonthName(now)}` : "in the next 30 days";
+  return `${name}'s highest tide ${when} is ${v.toFixed(1)} ft on ${fmtDayLabel(at)}, ${aboutHighTide(v - mhhwAboveMllw)}.`;
 }

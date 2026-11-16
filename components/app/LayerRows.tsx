@@ -1,6 +1,7 @@
 "use client";
 
 import type { LayerId, LayerSettings } from "../map/layers";
+import { Term } from "./Term";
 
 const SWATCH: Record<LayerId, React.ReactNode> = {
   terrain: (
@@ -122,7 +123,7 @@ export function LayerRows({ layers, onChange, followTide, onFollowTide }: Props)
       </label>
       <div className="mt-3 space-y-1.5 border-t border-line pt-2 text-[12.5px] leading-snug">
         <p>
-          Water layer: NOAA screening-level maps from a modified bathtub method that accounts for tidal variation and hydrologic connectivity. The high-tide line means MHHW, the average height of the higher high tide each day.
+          Water layer: NOAA screening-level maps from a modified bathtub method that accounts for tidal variation and hydrologic connectivity. The high-tide line is an <Term term="MHHW" full="mean higher high water">average high tide</Term>, the mean height of the higher of each day&apos;s two high tides.
         </p>
         <p className="flex items-start gap-2">
           <svg width="16" height="16" viewBox="0 0 16 16" className="mt-0.5 shrink-0" aria-hidden>

@@ -22,6 +22,8 @@ export default async function Home() {
       kings: s.kingTides.map((k) => [k.t, k.height]),
       daysOver: s.daysOver,
       thresholdKind: s.thresholdKind,
+      dailyStart: s.dailyStart,
+      dailyMax: s.dailyMax,
     })),
   };
   const stations: MapStation[] = STATIONS.map(({ id, slug, name, lat, lng, facing, datums, thresholds }) => ({ id, slug, name, lat, lng, facing, datums, thresholds }));

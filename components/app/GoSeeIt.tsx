@@ -80,7 +80,7 @@ export function GoSeeIt({ station, next, spots, onSpot, onShowTide }: Props) {
           <ul className="mt-1 space-y-2.5">
             {watch.map((s) => (
               <li key={s.slug}>
-                <button type="button" onClick={() => onSpot(s.slug)} className="text-left font-bold text-ink underline decoration-line underline-offset-2 hover:decoration-ink">
+                <button type="button" onClick={() => onSpot(s.slug)} className="inline-flex min-h-11 items-center text-left font-bold text-ink underline decoration-line underline-offset-2 hover:decoration-ink lg:min-h-0">
                   {s.name}
                 </button>
                 <p className="mt-0.5 text-[13px]">{s.fact}</p>

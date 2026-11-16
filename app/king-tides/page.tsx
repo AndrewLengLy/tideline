@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Term } from "@/components/app/Term";
 import Link from "next/link";
 import { CalendarTable } from "@/components/CalendarTable";
 import { PageShell, Stat } from "@/components/PageShell";
@@ -36,15 +37,15 @@ export default async function KingTidesPage() {
     <PageShell>
       <h1 className="text-[30px]">King tide calendar for San Francisco Bay</h1>
       <p className="mt-3 max-w-2xl">
-        The 20 highest predicted tides at Bay gauges over the next 12 months, ranked by height above mean higher high water (MHHW) and listed by date. The future-tide equivalent is the sea level rise at which that water level becomes an ordinary daily high. Each row exports a calendar event timed 30 minutes before the peak.
+        The 20 highest predicted tides at Bay gauges over the next 12 months, ranked by height above an <Term term="MHHW" full="mean higher high water">average high tide</Term> and listed by date. The future-tide equivalent is the sea level rise at which that water level becomes an ordinary daily high. Each row exports a calendar event timed 30 minutes before the peak.
       </p>
       <dl className="mt-5 grid gap-3 sm:grid-cols-2">
         {top ? (
-          <Stat label={`Highest tide, ${top.stationName}`} value={ft(top.height)} note={`${fmtShortDay(top.t)}, ${fmtTime(top.t)}. ${ft(futureTideEquivalent(top.aboveMhhw))} above MHHW.`} testId="headline-number" />
+          <Stat label={`Highest tide, ${top.stationName}`} value={ft(top.height)} note={`${fmtShortDay(top.t)}, ${fmtTime(top.t)}. ${ft(futureTideEquivalent(top.aboveMhhw))} above an average high tide.`} testId="headline-number" />
         ) : null}
-        {next ? <Stat label={`Next on this list, ${next.stationName}`} value={ft(next.height)} note={`${fmtShortDay(next.t)}, ${fmtTime(next.t)}. ${ft(futureTideEquivalent(next.aboveMhhw))} above MHHW.`} /> : null}
+        {next ? <Stat label={`Next on this list, ${next.stationName}`} value={ft(next.height)} note={`${fmtShortDay(next.t)}, ${fmtTime(next.t)}. ${ft(futureTideEquivalent(next.aboveMhhw))} above an average high tide.`} /> : null}
       </dl>
-      <p className="mt-2 text-[14px] text-muted">Heights in feet above MLLW. Predictions from NOAA CO-OPS, {fmtAsOf(overview.asOf)}.</p>
+      <p className="mt-2 text-[14px] text-muted">Heights in feet above an <Term term="MLLW" full="mean lower low water">average low tide</Term>. Predictions from NOAA CO-OPS, {fmtAsOf(overview.asOf)}.</p>
       {overview.failed.length ? <p className="mt-2 text-[15px] text-coral-ink">NOAA did not answer for {overview.failed.length} station(s). They return on the next refresh.</p> : null}
 
       <section className="mt-7">

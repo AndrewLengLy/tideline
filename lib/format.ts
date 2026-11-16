@@ -14,6 +14,7 @@ const SHORT_DAY = fmt({ weekday: "short", month: "short", day: "numeric" });
 const LONG_DAY = fmt({ weekday: "long", month: "long", day: "numeric" });
 const DATE = fmt({ month: "short", day: "numeric", year: "numeric" });
 const MONTH_DAY = fmt({ month: "short", day: "numeric" });
+const MONTH_NAME = fmt({ month: "long" });
 const TIME = fmt({ hour: "numeric", minute: "2-digit" });
 const FULL = fmt({ weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" });
 const ZONE = fmt({ hour: "numeric", timeZoneName: "short" });
@@ -23,6 +24,9 @@ export const fmtShortDay = (ms: number) => SHORT_DAY.format(ms);
 export const fmtLongDay = (ms: number) => LONG_DAY.format(ms);
 export const fmtDate = (ms: number) => DATE.format(ms);
 export const fmtMonthDay = (ms: number) => MONTH_DAY.format(ms);
+export const fmtMonthName = (ms: number) => MONTH_NAME.format(ms);
+/** "Tue Nov 24". */
+export const fmtDayLabel = (ms: number) => SHORT_DAY.format(ms).replace(",", "");
 export const fmtTime = (ms: number) => TIME.format(ms);
 export const fmtDateTime = (ms: number) => FULL.format(ms);
 export const fmtZone = (ms: number) => ZONE.formatToParts(ms).find((p) => p.type === "timeZoneName")?.value ?? "PT";

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Term } from "@/components/app/Term";
 import Link from "next/link";
 import { PageShell } from "@/components/PageShell";
 import { getOverview } from "@/lib/data";
@@ -48,7 +49,7 @@ export default async function StationsPage() {
                   </td>
                   <td className="num whitespace-nowrap">{o?.next ? fmtShortDay(o.next.t) : "no data"}</td>
                   <td className="num">{o?.next ? ft(o.next.height) : ""}</td>
-                  <td className="num whitespace-nowrap">{s.thresholds.minor !== null ? `${ft(s.thresholds.minor, 2)} above MHHW` : "none published"}</td>
+                  <td className="num whitespace-nowrap">{s.thresholds.minor !== null ? `${ft(s.thresholds.minor, 2)} above average high tide` : "none published"}</td>
                   <td className="num whitespace-nowrap">
                     {o?.daysOver.at(-1)?.days ?? ""}
                     {o?.thresholdKind === "action" ? " (action level)" : ""}
@@ -59,7 +60,7 @@ export default async function StationsPage() {
           </tbody>
         </table>
       </div>
-      <p className="mt-2 text-[14px] text-muted">Heights in feet above MLLW. Predictions from NOAA CO-OPS, {fmtAsOf(overview.asOf)}.</p>
+      <p className="mt-2 text-[14px] text-muted">Heights in feet above an <Term term="MLLW" full="mean lower low water">average low tide</Term>. Predictions from NOAA CO-OPS, {fmtAsOf(overview.asOf)}.</p>
       <p className="mt-5">
         See the gauges rise and fall on the{" "}
         <Link className="text-link underline" href="/">

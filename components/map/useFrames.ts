@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { cacheBucket, checkAge, type Freshness } from "@/lib/metrics/freshness";
 import { addDays, dayStart, MINUTE } from "@/lib/time";
 import type { MapStation, SurgeSummary } from "@/lib/types";
 
@@ -26,6 +27,8 @@ export interface ObservedSeries {
   values: Float32Array;
   residual: Float32Array;
   surge: SurgeSummary | null;
+  /** "updating" while a second request for an old reading is out, "old" when that one is old too. */
+  freshness: Freshness;
 }
 
 export interface Frames {
@@ -130,23 +133,40 @@ export function useFrames(from: string, stations: MapStation[], totalStations = 
         })
         .finally(finish);
 
-      fetch(`/api/observed/${s.id}`)
-        .then((r) => {
-          if (!r.ok) throw new Error(String(r.status));
-          return r.json() as Promise<ObservedResponse>;
-        })
-        .then((j) => {
-          if (!alive.current) return;
-          const abs = (rows: [number, number][]) => rows.map(([m, v]) => [j.t0 + m * MINUTE, v] as [number, number]);
-          setObserved((prev) =>
-            new Map(prev).set(s.id, {
-              asOf: j.asOf,
-              values: align(abs(j.observed), grid.t0, grid.count),
-              residual: align(abs(j.residual), grid.t0, grid.count),
-              surge: j.surge,
-            }),
-          );
-        })
+      // A CDN copy can outlive a quiet stretch. An old first answer gets one more request with a
+      // query that misses that copy, and the chart says it is updating until the answer lands.
+      const loadObserved = (url: string, retried: boolean): Promise<void> =>
+        fetch(url)
+          .then((r) => {
+            if (!r.ok) throw new Error(String(r.status));
+            return r.json() as Promise<ObservedResponse>;
+          })
+          .then((j) => {
+            if (!alive.current) return;
+            const freshness = checkAge(j.asOf, Date.now(), retried);
+            const abs = (rows: [number, number][]) => rows.map(([m, v]) => [j.t0 + m * MINUTE, v] as [number, number]);
+            setObserved((prev) =>
+              new Map(prev).set(s.id, {
+                asOf: j.asOf,
+                values: align(abs(j.observed), grid.t0, grid.count),
+                residual: align(abs(j.residual), grid.t0, grid.count),
+                surge: j.surge,
+                freshness,
+              }),
+            );
+            if (freshness === "updating") {
+              return loadObserved(`/api/observed/${s.id}?t=${cacheBucket(Date.now())}`, true).catch(() => {
+                // The second request failed, so the first answer stands and is judged on its own age.
+                if (!alive.current) return;
+                setObserved((prev) => {
+                  const cur = prev.get(s.id);
+                  return cur ? new Map(prev).set(s.id, { ...cur, freshness: checkAge(cur.asOf, Date.now(), true) }) : prev;
+                });
+              });
+            }
+          });
+
+      loadObserved(`/api/observed/${s.id}`, false)
         .catch(() => undefined)
         .finally(finish);
     }

@@ -15,7 +15,7 @@ test("map page loads with a server-rendered headline", async ({ page }) => {
 test("server HTML carries the h1 and headline text before any script runs", async ({ request }) => {
   const html = await (await request.get("/")).text();
   expect(html).toContain("SF Bay king tides and sea level rise");
-  expect(html).toMatch(/\d\.\d ft high at Alameda sits \d\.\d ft above MHHW/);
+  expect(html).toMatch(/\d\.\d ft high at Alameda sits \d\.\d ft above an average high tide/);
 });
 
 test("scrubber plays three frames and writes t to the URL", async ({ page }) => {
@@ -48,7 +48,7 @@ test("moving the slider while tiles load still swaps the NOAA layer", async ({ p
   await page.goto("/");
   await page.locator("canvas.maplibregl-canvas").first().waitFor({ state: "attached", timeout: 40_000 });
   type EngineWindow = { __tideEngine?: { map: { getLayer: (id: string) => unknown; getPaintProperty: (id: string, p: string) => unknown } } };
-  await expect.poll(() => page.evaluate(() => !!(window as unknown as EngineWindow).__tideEngine?.map.getLayer("slr-0")), { timeout: 40_000 }).toBe(true);
+  await expect.poll(() => page.evaluate(() => !!(window as unknown as EngineWindow).__tideEngine?.map.getLayer("slr-fill-0")), { timeout: 40_000 }).toBe(true);
   const range = page.getByRole("slider", { name: /Sea level rise in feet/ });
   await range.focus();
   for (let i = 0; i < 5; i++) await page.keyboard.press("ArrowRight");
@@ -57,7 +57,7 @@ test("moving the slider while tiles load still swaps the NOAA layer", async ({ p
       () =>
         page.evaluate(() => {
           const map = (window as unknown as EngineWindow).__tideEngine?.map;
-          return map?.getLayer("slr-5") ? map.getPaintProperty("slr-5", "raster-opacity") : -1;
+          return map?.getLayer("slr-fill-5") ? map.getPaintProperty("slr-fill-5", "raster-opacity") : -1;
         }),
       { timeout: 20_000 },
     )
@@ -121,7 +121,7 @@ test("station page renders its h1 and headline number", async ({ page }) => {
   await page.goto("/stations/alameda");
   await expect(page.locator("h1")).toHaveText("Alameda tide station");
   await expect(page.getByTestId("headline-number").first()).toHaveText(/^\d+\.\d ft$/);
-  await expect(page.getByText("Days over threshold, next 12 months")).toBeVisible();
+  await expect(page.getByText("Days the tide reaches the flood line, next 12 months")).toBeVisible();
   await expect(page.getByText("Last 72 hours", { exact: true })).toBeVisible();
 });
 

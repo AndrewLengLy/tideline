@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 
 const FAQ: [string, string][] = [
   ["What is a king tide?", "A king tide is an informal name for the highest predicted tides of the year. They happen when the Moon sits closest to Earth and lines up with the Sun. In San Francisco Bay they arrive around the winter and summer solstices."],
-  ["Does a king tide mean flooding?", "Sometimes. A king tide on a calm day may only wet low paths and parking lots. The same tide with a storm on top can flood roads. Tide predictions leave out weather, so the residual chart shows how far real water is running from the prediction."],
+  ["Does a king tide mean flooding?", "Sometimes. A king tide on a calm day may only wet low paths and parking lots. The same tide with a storm on top can flood roads. Tide predictions leave out weather, so the storm push chart (the residual) shows how far real water is running from the prediction."],
   ["Why do thresholds differ from the slider?", "The slider moves NOAA's mapped water extent. Flood thresholds are water levels at one gauge. They answer different questions, and the map shows both so they can be compared."],
   ["Why do some gauges have no flood threshold?", "NOAA publishes minor, moderate, and major levels for San Francisco, Alameda, Point Reyes, and Port Chicago. Redwood City, Richmond, and Martinez have an action level only. Tideline says so on those pages and counts days over the action level, labeled as such."],
 ];
@@ -79,7 +79,7 @@ export default async function MethodologyPage() {
         <h2>Data sources</h2>
         <h3>NOAA CO-OPS tide predictions and water levels</h3>
         <p>
-          The <a href={LINKS.coopsDocs}>CO-OPS data API</a> supplies high and low predictions, 6-minute predicted curves, and observed water levels, all in feet above mean lower low water (MLLW) on local time. Predictions refresh once a day through a cron job, and observed levels refresh every 6 minutes. NOAA limits high and low requests to 1 year and 6-minute requests to 1 month, so longer ranges are split. Observed values are preliminary and can change after NOAA reviews them. Predictions cover astronomy alone, so they leave out weather and river flow.
+          The <a href={LINKS.coopsDocs}>CO-OPS data API</a> supplies high and low predictions, 6-minute predicted curves, and observed water levels, all in feet above mean lower low water (MLLW) on local time. Predictions refresh once a day through a cron job, and observed levels refresh every 6 minutes. NOAA limits high and low requests to 1 year and 6-minute requests to 1 month, so longer ranges are split. Observed values are preliminary and can change after NOAA reviews them. The map checks the time on each reading it receives. A reading more than 30 minutes old sets off one more request that skips cached copies, and a reading still more than 2 hours old is labeled with its age. Predictions cover astronomy alone, so they leave out weather and river flow.
         </p>
         <h3>NOAA CO-OPS datums and flood levels</h3>
         <p>
@@ -133,7 +133,7 @@ export default async function MethodologyPage() {
           <code>days(add) = count of Pacific calendar days with a high where height + add - MHHW &gt; threshold</code>
         </p>
         <p>Counted for add values of 0, 1, 2, and 3 ft across the next 12 months of predicted highs. The threshold is NOAA&apos;s minor level above MHHW. At gauges with no minor level, the count uses the action level and says so.</p>
-        <h3>Surge</h3>
+        <h3>Storm push (residual and surge)</h3>
         <p>
           <code>residual = observed - predicted</code>
         </p>
@@ -157,9 +157,17 @@ export default async function MethodologyPage() {
         <p>Each layer is drawn against the 0 ft layer, today&apos;s MHHW. Land that is wet only with added water takes the step blue. Land already wet at 0 ft, mostly marsh and salt ponds, gets a pale tint. The waterline is traced on the wet side of every pixel that touches dry land.</p>
         <p>Gauge staffs show water level above MHHW at the scrubber time plus the slider. Observed readings replace predictions wherever both exist. The 6 ft figure stands at MHHW, the height of the shoreline at an ordinary high tide. Staff and figure heights are drawn for legibility and exaggerated with the terrain setting, and each label prints the true value.</p>
 
+        <h3>Calendar city</h3>
+        <p>
+          <code>height(day) = highest predicted high - MHHW + slider</code>
+        </p>
+        <p>Each block is one Pacific day in the next 12 months, with one week per column. A block turns coral when that day&apos;s highest high plus the slider crosses the gauge&apos;s minor flood threshold, or its action level where NOAA publishes no minor level. The count above the calendar uses the same test as the days over threshold, so the two always agree. The page carries one number per day for each gauge, NOAA&apos;s highest predicted high at its own 3 decimals.</p>
+        <h3>Exploded view</h3>
+        <p>Taking the map apart lifts the water into floating slabs over the selected gauge. The lowest is 0 ft, an average high tide (MHHW). Above it sits the step nearest the next king tide&apos;s height above MHHW, and the slider&apos;s step goes on top. Slabs sit 900 m apart, times the terrain height setting. When the king tide step and the slider step land on the same foot, they share one slab, since that water reaches the same line on both dates. Each slab uses the same NOAA tiles and paint as the water on the ground, with a light fill on open water so the slab keeps its outline in the air.</p>
+
         <h2>What this tool cannot tell you</h2>
         <p>
-          It cannot tell you whether a given street will flood on a given day. Predictions leave out weather. The sea level rise layers leave out storms and waves. They also miss storm drains and recent levees. A point query reports what a screening map shows at a pixel, so a flooded step on a spot page is a reason to go look. Buildings turn coral in 3D when the center of their footprint falls inside NOAA's connected mapped water at the whole foot the map shows. That is one point per building tested against a screening layer, so a coral building may stay dry and a gray one may not. A site survey is the real test.
+          It cannot tell you whether a given street will flood on a given day. Predictions leave out weather. The sea level rise layers leave out storms and waves. They also miss storm drains and recent levees. A point query reports what a screening map shows at a pixel, so a flooded step on a spot page is a reason to go look. Buildings turn coral in 3D when the center of their footprint falls inside NOAA&apos;s connected mapped water at the whole foot the map shows. That is one point per building tested against a screening layer, so a coral building may stay dry and a gray one may not. A site survey is the real test.
         </p>
         <p>
           Spot tide times come from the nearest active gauge, which can be miles away, and the local peak can differ. The future-tide equivalent assumes tides keep today&apos;s shape, and real tidal range can shift as the Bay deepens. Sea level rise on this site is a set of what-if steps with no dates attached. Tideline makes no forecast of when any step arrives.

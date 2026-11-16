@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { fmtShortDay, fmtTime } from "@/lib/format";
 import { pacificDay } from "@/lib/time";
 
@@ -10,6 +11,29 @@ export interface KeyEvent {
   at: number;
   kind: KeyEventKind;
   label: string;
+}
+
+/** Each Pacific day's highest predicted frame, cached per series, since the slider recomputes the event list on every step. */
+const highsCache = new WeakMap<Float32Array, { t0: number; stepMs: number; list: { index: number; day: string }[] }>();
+function dailyHighs(predicted: Float32Array, t0: number, stepMs: number): { index: number; day: string }[] {
+  const hit = highsCache.get(predicted);
+  if (hit && hit.t0 === t0 && hit.stepMs === stepMs) return hit.list;
+  const list: { index: number; day: string }[] = [];
+  let day = "";
+  let best = -1;
+  for (let i = 0; i < predicted.length; i++) {
+    const d = pacificDay(t0 + i * stepMs);
+    if (d !== day) {
+      if (best >= 0) list.push({ index: best, day });
+      day = d;
+      best = i;
+    } else if (predicted[i] > predicted[best]) {
+      best = i;
+    }
+  }
+  if (best >= 0) list.push({ index: best, day });
+  highsCache.set(predicted, { t0, stepMs, list });
+  return list;
 }
 
 /**
@@ -28,29 +52,14 @@ export function deriveKeyEvents(opts: {
   const out: KeyEvent[] = [...kings, ...crossings];
   const kingDays = new Set(kings.map((k) => pacificDay(k.at)));
   if (predicted && predicted.length) {
-    let day = "";
-    let best = -1;
-    const flush = () => {
-      if (best >= 0 && !kingDays.has(day)) {
-        out.push({ index: best, at: t0 + best * stepMs, kind: "high", label: `High ${predicted[best].toFixed(1)} ft MLLW` });
-      }
-    };
-    for (let i = 0; i < predicted.length; i++) {
-      const d = pacificDay(t0 + i * stepMs);
-      if (d !== day) {
-        flush();
-        day = d;
-        best = i;
-      } else if (predicted[i] > predicted[best]) {
-        best = i;
-      }
+    for (const { index, day } of dailyHighs(predicted, t0, stepMs)) {
+      if (!kingDays.has(day)) out.push({ index, at: t0 + index * stepMs, kind: "high", label: `High tide ${predicted[index].toFixed(1)} ft` });
     }
-    flush();
   }
   if (surge && surge.maxFt > 0) {
     const i = Math.round((surge.at - t0) / stepMs);
     if (i >= 0 && (!predicted || i < predicted.length)) {
-      out.push({ index: i, at: surge.at, kind: "surge", label: `Largest surge +${surge.maxFt.toFixed(2)} ft` });
+      out.push({ index: i, at: surge.at, kind: "surge", label: `Largest storm push +${surge.maxFt.toFixed(2)} ft` });
     }
   }
   return out.sort((a, b) => a.at - b.at);
@@ -63,7 +72,7 @@ const DOT: Record<KeyEventKind, string> = {
   surge: "bg-muted",
 };
 
-export function KeyEvents({ events, onPick, activeIndex }: { events: KeyEvent[]; onPick: (index: number) => void; activeIndex: number | null }) {
+export const KeyEvents = memo(function KeyEvents({ events, onPick, activeIndex }: { events: KeyEvent[]; onPick: (index: number) => void; activeIndex: number | null }) {
   if (!events.length) return null;
   return (
     <section aria-labelledby="key-events-title" data-testid="key-events">
@@ -89,4 +98,4 @@ export function KeyEvents({ events, onPick, activeIndex }: { events: KeyEvent[];
       </ol>
     </section>
   );
-}
+})

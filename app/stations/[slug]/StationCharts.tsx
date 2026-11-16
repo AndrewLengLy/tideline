@@ -23,12 +23,12 @@ export function StationCharts({ station, t0, count, observed, predicted, residua
   return (
     <div className="space-y-5">
       <figure>
-        <figcaption className="text-[15px] font-bold">Water level, feet above MLLW</figcaption>
+        <figcaption className="text-[15px] font-bold">Water level, feet above average low tide</figcaption>
         <WaterLevelChart t0={t0} stepMs={STEP} count={count} predicted={toValues(predicted)} observed={toValues(observed)} mhhw={station.datums.mhhw} thresholds={station.thresholds} king={king} height={230} stationName={station.name} initialWidth={760} />
         <p className="text-[14px] text-muted">Dashed line predicted, solid line observed.</p>
       </figure>
       <figure>
-        <figcaption className="text-[15px] font-bold">Residual, feet (observed minus predicted)</figcaption>
+        <figcaption className="text-[15px] font-bold">Storm push, feet (measured minus predicted)</figcaption>
         <ResidualChart t0={t0} stepMs={STEP} count={count} residual={toValues(residual)} height={140} stationName={station.name} initialWidth={760} />
       </figure>
     </div>
